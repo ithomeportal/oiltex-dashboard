@@ -4,9 +4,21 @@ import pool from "@/lib/db";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// Allowed email domains for login
+const ALLOWED_DOMAINS = [
+  "oiltex.com",
+  "unilinktransportation.com",
+  "unilinkportal.com",
+];
+
 function generateCode(): string {
   // Generate 8-digit numeric code
   return Math.floor(10000000 + Math.random() * 90000000).toString();
+}
+
+function isAllowedDomain(email: string): boolean {
+  const domain = email.split("@")[1]?.toLowerCase();
+  return ALLOWED_DOMAINS.includes(domain);
 }
 
 export async function POST(request: Request) {
@@ -18,6 +30,14 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { success: false, error: "Valid email is required" },
         { status: 400 }
+      );
+    }
+
+    // Check if email domain is allowed
+    if (!isAllowedDomain(email)) {
+      return NextResponse.json(
+        { success: false, error: "Access restricted to authorized domains only" },
+        { status: 403 }
       );
     }
 
