@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
     // Send email via Resend
     await resend.emails.send({
-      from: "OilTex Dashboard <onboarding@resend.dev>",
+      from: "OilTex Dashboard <noreply@unilinkportal.com>",
       to: email,
       subject: "Your OilTex Dashboard Login Code",
       html: `
