@@ -24,14 +24,17 @@ function isAllowedDomain(email: string): boolean {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email } = body;
+    const { email: rawEmail } = body;
 
-    if (!email || !email.includes("@")) {
+    if (!rawEmail || !rawEmail.includes("@")) {
       return NextResponse.json(
         { success: false, error: "Valid email is required" },
         { status: 400 }
       );
     }
+
+    // Normalize email: lowercase and trim whitespace
+    const email = rawEmail.toLowerCase().trim();
 
     // Check if email domain is allowed
     if (!isAllowedDomain(email)) {
@@ -43,14 +46,15 @@ export async function POST(request: Request) {
 
     // Generate 8-digit code
     const code = generateCode();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    // Use explicit UTC timestamp for consistent timezone handling
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
     // Save code to database
     const client = await pool.connect();
     try {
       await client.query(
         `INSERT INTO auth_codes (email, code, expires_at)
-         VALUES ($1, $2, $3)`,
+         VALUES ($1, $2, $3::timestamptz)`,
         [email, code, expiresAt]
       );
     } finally {

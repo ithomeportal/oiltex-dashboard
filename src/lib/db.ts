@@ -42,15 +42,20 @@ export async function initDatabase() {
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) NOT NULL,
         code VARCHAR(8) NOT NULL,
-        expires_at TIMESTAMP NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
         used BOOLEAN DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
     // Fix code column length if it was created with wrong size
     await client.query(`
       ALTER TABLE auth_codes ALTER COLUMN code TYPE VARCHAR(8);
+    `);
+
+    // Fix expires_at column to use TIMESTAMPTZ for proper timezone handling
+    await client.query(`
+      ALTER TABLE auth_codes ALTER COLUMN expires_at TYPE TIMESTAMPTZ;
     `);
 
     // Create sessions table

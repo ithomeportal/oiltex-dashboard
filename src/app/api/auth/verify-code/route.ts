@@ -9,18 +9,24 @@ function generateToken(): string {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, code } = body;
+    const { email: rawEmail, code } = body;
 
-    if (!email || !code) {
+    if (!rawEmail || !code) {
       return NextResponse.json(
         { success: false, error: "Email and code are required" },
         { status: 400 }
       );
     }
 
+    // Normalize email: lowercase and trim whitespace (must match send-code normalization)
+    const email = rawEmail.toLowerCase().trim();
+    // Normalize code: trim whitespace
+    const normalizedCode = code.toString().trim();
+
     const client = await pool.connect();
     try {
       // Check if code is valid and not expired
+      // Use NOW() AT TIME ZONE 'UTC' for consistent timezone comparison
       const result = await client.query(
         `SELECT id FROM auth_codes
          WHERE email = $1
@@ -29,10 +35,35 @@ export async function POST(request: Request) {
            AND used = FALSE
          ORDER BY created_at DESC
          LIMIT 1`,
-        [email, code]
+        [email, normalizedCode]
       );
 
       if (result.rows.length === 0) {
+        // Log debug info for troubleshooting
+        const debugResult = await client.query(
+          `SELECT id, email, code, expires_at, used,
+                  NOW() as current_time,
+                  expires_at > NOW() as is_not_expired
+           FROM auth_codes
+           WHERE email = $1
+           ORDER BY created_at DESC
+           LIMIT 3`,
+          [email]
+        );
+        console.log("Code verification failed. Debug info:", {
+          providedEmail: email,
+          providedCode: normalizedCode,
+          recentCodes: debugResult.rows.map(r => ({
+            id: r.id,
+            storedCode: r.code,
+            codeMatch: r.code === normalizedCode,
+            expiresAt: r.expires_at,
+            currentTime: r.current_time,
+            isNotExpired: r.is_not_expired,
+            used: r.used
+          }))
+        });
+
         return NextResponse.json(
           { success: false, error: "Invalid or expired code" },
           { status: 401 }
