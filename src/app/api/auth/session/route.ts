@@ -2,6 +2,15 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import pool from "@/lib/db";
 
+// Superadmin emails - these users have elevated privileges
+const SUPERADMIN_EMAILS = [
+  "ithome@unilinkportal.com",
+];
+
+function isSuperAdmin(email: string): boolean {
+  return SUPERADMIN_EMAILS.includes(email.toLowerCase());
+}
+
 export async function GET() {
   try {
     const cookieStore = await cookies();
@@ -23,9 +32,11 @@ export async function GET() {
         return NextResponse.json({ authenticated: false });
       }
 
+      const email = result.rows[0].email;
       return NextResponse.json({
         authenticated: true,
-        email: result.rows[0].email,
+        email: email,
+        isAdmin: isSuperAdmin(email),
       });
     } finally {
       client.release();

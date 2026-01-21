@@ -22,6 +22,7 @@ export default function Dashboard() {
   const router = useRouter();
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [email, setEmail] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
   const [prices, setPrices] = useState<LivePrices | null>(null);
   const [loading, setLoading] = useState(false);
   const [transportDiff, setTransportDiff] = useState<string>("2.50");
@@ -33,6 +34,7 @@ export default function Dashboard() {
       .then((data) => {
         setAuthenticated(data.authenticated);
         if (data.email) setEmail(data.email);
+        if (data.isAdmin) setIsAdmin(data.isAdmin);
         if (!data.authenticated) {
           router.push("/login");
         }
@@ -114,6 +116,11 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex items-center gap-4">
+            {isAdmin && (
+              <span className="bg-purple-100 text-purple-700 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                Admin
+              </span>
+            )}
             <span className="text-sm text-slate-600">{email}</span>
             <button
               onClick={handleLogout}
