@@ -132,7 +132,7 @@ export async function getLatestPrices(days: number = 30) {
     const result = await client.query(
       `SELECT date, source, price_type, value, unit
        FROM oil_prices
-       WHERE date >= CURRENT_DATE - $1
+       WHERE date >= CURRENT_DATE - INTERVAL '1 day' * $1
        ORDER BY date DESC, source, price_type`,
       [days]
     );
