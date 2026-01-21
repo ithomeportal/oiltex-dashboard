@@ -69,6 +69,19 @@ export async function initDatabase() {
       );
     `);
 
+    // Add email column if it doesn't exist (migration for existing tables)
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'sessions' AND column_name = 'email'
+        ) THEN
+          ALTER TABLE sessions ADD COLUMN email VARCHAR(255);
+        END IF;
+      END $$;
+    `);
+
     // Create price_calculations table for storing computed values like CMA
     await client.query(`
       CREATE TABLE IF NOT EXISTS price_calculations (
