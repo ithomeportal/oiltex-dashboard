@@ -4,6 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "OilTex Price Dashboard",
   description: "WTI Crude Oil Pricing Dashboard for New Mexico Purchases",
+  metadataBase: new URL("https://index.oiltex.com"),
 };
 
 export default function RootLayout({

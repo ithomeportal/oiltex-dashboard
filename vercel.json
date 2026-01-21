@@ -4,5 +4,29 @@
       "path": "/api/cron/fetch-prices",
       "schedule": "0 18 * * 1-5"
     }
+  ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "oiltex-dashboard.vercel.app"
+        }
+      ],
+      "destination": "https://index.oiltex.com/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "oiltex-dashboard-.*\\.vercel\\.app"
+        }
+      ],
+      "destination": "https://index.oiltex.com/:path*",
+      "permanent": false
+    }
   ]
 }
