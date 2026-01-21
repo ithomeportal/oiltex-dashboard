@@ -26,7 +26,7 @@ export default function HistoryPage() {
   const fetchPrices = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/prices?source=live&days=${daysToShow}`);
+      const res = await fetch(`/api/prices?days=${daysToShow}`);
       const data = await res.json();
       if (data.success) {
         setPrices(data.data);

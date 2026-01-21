@@ -124,7 +124,7 @@ export default function Dashboard() {
   const fetchPrices = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/prices?source=live&days=30");
+      const res = await fetch("/api/prices?days=30");
       const data = await res.json();
       if (data.success) {
         setPrices(data.data);
@@ -140,10 +140,15 @@ export default function Dashboard() {
     fetchPrices();
   }, [fetchPrices]);
 
-  // Get latest values
-  const latestWTI = prices?.eia?.find((p) => p.value !== null);
+  // Get latest values (with fallbacks)
+  const latestEIA = prices?.eia?.find((p) => p.value !== null);
+  const latestFRED = prices?.fred?.find((p) => p.value !== null);
+  const latestWTI = latestEIA || latestFRED; // Use FRED as fallback for spot price
   const latestFutures = prices?.yahooFutures?.find((p) => p.value !== null);
   const latestMidlandDiff = prices?.yahooMidland?.find((p) => p.value !== null);
+
+  // Determine spot price source for display
+  const spotSource = latestEIA ? "EIA" : (latestFRED ? "FRED" : null);
 
   // Calculate estimated pricing
   const nymexBase = latestFutures?.value || 0;
@@ -159,7 +164,9 @@ export default function Dashboard() {
     return (sum / validPrices.length).toFixed(2);
   };
 
-  const eiaCMA = calculateCMA(prices?.eia || []);
+  // Use EIA or FRED for spot CMA (prefer EIA, fallback to FRED)
+  const spotData = (prices?.eia?.length || 0) > 0 ? prices?.eia : prices?.fred;
+  const spotCMA = calculateCMA(spotData || []);
   const futuresCMA = calculateCMA(prices?.yahooFutures || []);
 
   // Get trade month information
@@ -220,14 +227,14 @@ export default function Dashboard() {
 
         {/* Price Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* WTI Spot (EIA) */}
+          {/* WTI Spot (EIA or FRED fallback) */}
           <div className="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
             <div className="text-sm text-slate-500 mb-1">WTI Cushing Spot</div>
             <div className="text-3xl font-bold text-slate-800">
               ${latestWTI?.value?.toFixed(2) || "--"}
             </div>
             <div className="text-xs text-slate-400 mt-2">
-              EIA | {latestWTI?.date || "N/A"}
+              {spotSource || "N/A"} | {latestWTI?.date || "N/A"}
             </div>
           </div>
 
@@ -275,9 +282,9 @@ export default function Dashboard() {
             </h3>
             <div className="space-y-3">
               <div className="flex justify-between items-center py-2 border-b border-slate-100">
-                <span className="text-slate-600">EIA Spot CMA (30 days)</span>
+                <span className="text-slate-600">Spot CMA (30 days)</span>
                 <span className="font-semibold text-slate-800">
-                  ${eiaCMA || "--"}
+                  ${spotCMA || "--"}
                 </span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-slate-100">
@@ -289,7 +296,7 @@ export default function Dashboard() {
               <div className="flex justify-between items-center py-2">
                 <span className="text-slate-600">Trading Days</span>
                 <span className="font-semibold text-slate-800">
-                  {prices?.eia?.filter((p) => p.value !== null).length || 0}
+                  {spotData?.filter((p) => p.value !== null).length || 0}
                 </span>
               </div>
             </div>
@@ -334,8 +341,8 @@ export default function Dashboard() {
             30-Day WTI Spot Price Trend
           </h3>
           {(() => {
-            // Get valid EIA prices and reverse for chronological order
-            const validPrices = (prices?.eia || [])
+            // Get valid spot prices (EIA or FRED fallback) and reverse for chronological order
+            const validPrices = (spotData || [])
               .filter((p) => p.value !== null)
               .slice(0, 30)
               .reverse();
@@ -521,7 +528,7 @@ export default function Dashboard() {
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                      <span className="text-slate-600">WTI Spot (EIA)</span>
+                      <span className="text-slate-600">WTI Spot ({spotSource || "N/A"})</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-green-500"></div>

@@ -2,6 +2,41 @@ import { NextResponse } from "next/server";
 import { fetchAllPrices } from "@/lib/price-fetchers";
 import { getLatestPrices, calculateCMA } from "@/lib/db";
 
+// Transform flat database rows into grouped format expected by frontend
+function transformDbPrices(rows: Array<{ date: string; source: string; price_type: string; value: number | null }>) {
+  const eia: Array<{ date: string; value: number | null; source: string; priceType: string }> = [];
+  const fred: Array<{ date: string; value: number | null; source: string; priceType: string }> = [];
+  const yahooFutures: Array<{ date: string; value: number | null; source: string; priceType: string }> = [];
+  const yahooMidland: Array<{ date: string; value: number | null; source: string; priceType: string }> = [];
+
+  for (const row of rows) {
+    const priceData = {
+      date: row.date.toString().split("T")[0], // Normalize date format
+      value: row.value ? parseFloat(String(row.value)) : null,
+      source: row.source,
+      priceType: row.price_type,
+    };
+
+    if (row.source === "EIA") {
+      eia.push(priceData);
+    } else if (row.source === "FRED") {
+      fred.push(priceData);
+    } else if (row.source === "YAHOO" && row.price_type === "WTI_FUTURES_CL") {
+      yahooFutures.push(priceData);
+    } else if (row.source === "YAHOO" && row.price_type === "WTI_MIDLAND_DIFF") {
+      yahooMidland.push(priceData);
+    }
+  }
+
+  return {
+    eia,
+    fred,
+    yahooFutures,
+    yahooMidland,
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const source = searchParams.get("source"); // 'live', 'db', or 'both'
@@ -9,26 +44,14 @@ export async function GET(request: Request) {
 
   try {
     if (source === "live") {
-      // Fetch fresh data from APIs
+      // Fetch fresh data from APIs (fallback, for manual refresh)
       const prices = await fetchAllPrices(days);
       return NextResponse.json({ success: true, data: prices });
-    } else if (source === "db") {
-      // Get stored data from database
-      const prices = await getLatestPrices(days);
-      return NextResponse.json({ success: true, data: prices });
     } else {
-      // Default: fetch both and compare
-      const [livePrices, dbPrices] = await Promise.all([
-        fetchAllPrices(days),
-        getLatestPrices(days),
-      ]);
-      return NextResponse.json({
-        success: true,
-        data: {
-          live: livePrices,
-          stored: dbPrices,
-        },
-      });
+      // Default: Get stored data from database (recommended)
+      const dbRows = await getLatestPrices(days);
+      const prices = transformDbPrices(dbRows);
+      return NextResponse.json({ success: true, data: prices });
     }
   } catch (error) {
     console.error("Error fetching prices:", error);
