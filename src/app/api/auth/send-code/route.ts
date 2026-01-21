@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     }
 
     // Send email via Resend
-    await resend.emails.send({
+    const { data, error: resendError } = await resend.emails.send({
       from: "OilTex Dashboard <noreply@unilinkportal.com>",
       to: email,
       subject: "Your OilTex Dashboard Login Code",
@@ -80,14 +80,24 @@ export async function POST(request: Request) {
       `,
     });
 
+    if (resendError) {
+      console.error("Resend error:", resendError);
+      return NextResponse.json(
+        { success: false, error: "Failed to send email", details: resendError.message },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       message: "Verification code sent to your email",
+      emailId: data?.id,
     });
   } catch (error) {
     console.error("Error sending auth code:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { success: false, error: "Failed to send verification code" },
+      { success: false, error: "Failed to send verification code", details: errorMessage },
       { status: 500 }
     );
   }
