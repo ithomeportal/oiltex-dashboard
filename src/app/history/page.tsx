@@ -18,6 +18,26 @@ interface LivePrices {
   fetchedAt: string;
 }
 
+// Normalize date to YYYY-MM-DD format
+function normalizeDate(dateStr: string): string {
+  if (!dateStr) return "";
+  // Handle various date formats
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return dateStr;
+  return date.toISOString().split("T")[0];
+}
+
+// Format date for display (e.g., "Mon 2026-01-21")
+function formatDisplayDate(dateStr: string): { dayName: string; dateFormatted: string } {
+  const normalized = normalizeDate(dateStr);
+  const date = new Date(normalized + "T12:00:00"); // Add noon to avoid timezone issues
+  if (isNaN(date.getTime())) {
+    return { dayName: "", dateFormatted: dateStr };
+  }
+  const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
+  return { dayName, dateFormatted: normalized };
+}
+
 export default function HistoryPage() {
   const [prices, setPrices] = useState<LivePrices | null>(null);
   const [loading, setLoading] = useState(false);
@@ -43,12 +63,12 @@ export default function HistoryPage() {
     fetchPrices();
   }, [fetchPrices]);
 
-  // Get trading days only (days with actual data)
+  // Get trading days only (days with actual data) - normalized to YYYY-MM-DD
   const getTradingDates = () => {
     const dateSet = new Set<string>();
-    prices?.eia?.forEach((p) => dateSet.add(p.date));
-    prices?.yahooFutures?.forEach((p) => dateSet.add(p.date));
-    prices?.yahooMidland?.forEach((p) => dateSet.add(p.date));
+    prices?.eia?.forEach((p) => dateSet.add(normalizeDate(p.date)));
+    prices?.yahooFutures?.forEach((p) => dateSet.add(normalizeDate(p.date)));
+    prices?.yahooMidland?.forEach((p) => dateSet.add(normalizeDate(p.date)));
     return Array.from(dateSet).sort((a, b) => b.localeCompare(a));
   };
 
@@ -64,10 +84,10 @@ export default function HistoryPage() {
     return dates;
   };
 
-  // Build price map for quick lookups
+  // Build price map for quick lookups - normalize dates to YYYY-MM-DD
   const buildPriceMap = (priceArray: PriceData[] | undefined) => {
     const map = new Map<string, number | null>();
-    priceArray?.forEach((p) => map.set(p.date, p.value));
+    priceArray?.forEach((p) => map.set(normalizeDate(p.date), p.value));
     return map;
   };
 
@@ -104,7 +124,8 @@ export default function HistoryPage() {
 
   // Check if a date is a weekend
   const isWeekend = (dateStr: string) => {
-    const date = new Date(dateStr);
+    const normalized = normalizeDate(dateStr);
+    const date = new Date(normalized + "T12:00:00"); // Add noon to avoid timezone issues
     const day = date.getDay();
     return day === 0 || day === 6;
   };
@@ -193,16 +214,16 @@ export default function HistoryPage() {
                   {dates.slice(0, daysToShow).map((date, i) => {
                     const weekend = isWeekend(date);
 
-                    // Get prices with fill-forward for calendar mode
+                    // Get prices - use map lookup (already normalized)
                     const eiaData = viewMode === "calendar"
                       ? getPriceWithFillForward(date, eiaMap, dates)
-                      : { value: prices?.eia?.find((p) => p.date === date)?.value ?? null, isFillForward: false };
+                      : { value: eiaMap.get(date) ?? null, isFillForward: false };
                     const futuresData = viewMode === "calendar"
                       ? getPriceWithFillForward(date, futuresMap, dates)
-                      : { value: prices?.yahooFutures?.find((p) => p.date === date)?.value ?? null, isFillForward: false };
+                      : { value: futuresMap.get(date) ?? null, isFillForward: false };
                     const midlandData = viewMode === "calendar"
                       ? getPriceWithFillForward(date, midlandMap, dates)
-                      : { value: prices?.yahooMidland?.find((p) => p.date === date)?.value ?? null, isFillForward: false };
+                      : { value: midlandMap.get(date) ?? null, isFillForward: false };
 
                     // Calculate estimated net price (using $2.50 transport as default)
                     const transport = 2.50;
@@ -211,8 +232,7 @@ export default function HistoryPage() {
                       : null;
 
                     // Format date with day of week
-                    const dateObj = new Date(date);
-                    const dayName = dateObj.toLocaleDateString("en-US", { weekday: "short" });
+                    const { dayName, dateFormatted } = formatDisplayDate(date);
 
                     return (
                       <tr
@@ -221,7 +241,7 @@ export default function HistoryPage() {
                       >
                         <td className="px-6 py-3 text-sm font-medium">
                           <span className={weekend ? "text-slate-400" : "text-slate-800"}>
-                            {dayName} {date}
+                            {dayName} {dateFormatted}
                           </span>
                           {weekend && (
                             <span className="ml-2 text-xs text-slate-400">(Weekend)</span>
