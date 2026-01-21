@@ -32,7 +32,17 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Documentation (kept local only)
+# Documentation (kept local only - NEVER commit to remote)
 /docs/
 *.md
-!README.md
+*.MD
+*.txt
+*.TXT
+*.rst
+*.RST
+CHANGELOG*
+HISTORY*
+README*
+CONTRIBUTING*
+AUTHORS*
+CREDITS*
