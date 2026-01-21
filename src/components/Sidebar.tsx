@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 
 interface SidebarProps {
@@ -21,9 +22,14 @@ export default function Sidebar({ email, isAdmin, onLogout }: SidebarProps) {
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-slate-800 flex flex-col">
       {/* Logo */}
-      <div className="p-6 border-b border-slate-700">
-        <h1 className="text-xl font-bold text-white">OilTex</h1>
-        <p className="text-slate-400 text-sm">Price Dashboard</p>
+      <div className="p-6 border-b border-slate-700 flex justify-center">
+        <Image
+          src="/logo.png"
+          alt="OilTex"
+          width={180}
+          height={60}
+          priority
+        />
       </div>
 
       {/* Navigation */}
