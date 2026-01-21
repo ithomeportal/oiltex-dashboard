@@ -150,6 +150,13 @@ export default function Dashboard() {
   // Determine spot price source for display
   const spotSource = latestEIA ? "EIA" : (latestFRED ? "FRED" : null);
 
+  // Check if we have today's data (cron already ran)
+  const today = new Date().toISOString().split("T")[0];
+  const hasTodayData = !!(
+    prices?.yahooFutures?.some((p) => p.date === today) ||
+    prices?.yahooMidland?.some((p) => p.date === today)
+  );
+
   // Calculate estimated pricing
   const nymexBase = latestFutures?.value || 0;
   const midlandDiff = latestMidlandDiff?.value || 0;
@@ -215,13 +222,26 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Refresh button */}
-        <div className="flex justify-end mb-6">
+        <div className="flex justify-end items-center gap-4 mb-6">
+          {hasTodayData && (
+            <span className="text-sm text-green-600 flex items-center gap-1">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              Data current for today
+            </span>
+          )}
           <button
             onClick={fetchPrices}
-            disabled={loading}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            disabled={loading || hasTodayData}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              hasTodayData
+                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+            }`}
+            title={hasTodayData ? "Prices already updated for today" : "Refresh prices from database"}
           >
-            {loading ? "Refreshing..." : "Refresh Prices"}
+            {loading ? "Refreshing..." : hasTodayData ? "Up to Date" : "Refresh Prices"}
           </button>
         </div>
 
