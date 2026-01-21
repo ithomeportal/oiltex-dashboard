@@ -22,6 +22,7 @@ export default function HistoryPage() {
   const [prices, setPrices] = useState<LivePrices | null>(null);
   const [loading, setLoading] = useState(false);
   const [daysToShow, setDaysToShow] = useState(30);
+  const [viewMode, setViewMode] = useState<"trading" | "calendar">("calendar");
 
   const fetchPrices = useCallback(async () => {
     setLoading(true);
@@ -42,8 +43,8 @@ export default function HistoryPage() {
     fetchPrices();
   }, [fetchPrices]);
 
-  // Combine all dates from all sources
-  const getAllDates = () => {
+  // Get trading days only (days with actual data)
+  const getTradingDates = () => {
     const dateSet = new Set<string>();
     prices?.eia?.forEach((p) => dateSet.add(p.date));
     prices?.yahooFutures?.forEach((p) => dateSet.add(p.date));
@@ -51,7 +52,62 @@ export default function HistoryPage() {
     return Array.from(dateSet).sort((a, b) => b.localeCompare(a));
   };
 
-  const dates = getAllDates();
+  // Get all calendar days within range
+  const getCalendarDates = () => {
+    const dates: string[] = [];
+    const today = new Date();
+    for (let i = 0; i < daysToShow; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      dates.push(date.toISOString().split("T")[0]);
+    }
+    return dates;
+  };
+
+  // Build price map for quick lookups
+  const buildPriceMap = (priceArray: PriceData[] | undefined) => {
+    const map = new Map<string, number | null>();
+    priceArray?.forEach((p) => map.set(p.date, p.value));
+    return map;
+  };
+
+  // Get price with fill-forward for non-trading days
+  const getPriceWithFillForward = (
+    date: string,
+    priceMap: Map<string, number | null>,
+    allDates: string[]
+  ): { value: number | null; isFillForward: boolean } => {
+    if (priceMap.has(date)) {
+      return { value: priceMap.get(date) ?? null, isFillForward: false };
+    }
+    // Look backwards for the most recent trading day price
+    const dateObj = new Date(date);
+    for (let i = 1; i <= 10; i++) {
+      const prevDate = new Date(dateObj);
+      prevDate.setDate(prevDate.getDate() - i);
+      const prevDateStr = prevDate.toISOString().split("T")[0];
+      if (priceMap.has(prevDateStr)) {
+        return { value: priceMap.get(prevDateStr) ?? null, isFillForward: true };
+      }
+    }
+    return { value: null, isFillForward: false };
+  };
+
+  const tradingDates = getTradingDates();
+  const calendarDates = getCalendarDates();
+  const dates = viewMode === "trading" ? tradingDates : calendarDates;
+
+  // Build price maps for fill-forward lookups
+  const eiaMap = buildPriceMap(prices?.eia);
+  const futuresMap = buildPriceMap(prices?.yahooFutures);
+  const midlandMap = buildPriceMap(prices?.yahooMidland);
+
+  // Check if a date is a weekend
+  const isWeekend = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const day = date.getDay();
+    return day === 0 || day === 6;
+  };
 
   return (
     <DashboardLayout>
@@ -66,6 +122,29 @@ export default function HistoryPage() {
               </p>
             </div>
             <div className="flex items-center gap-4">
+              {/* View Mode Toggle */}
+              <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+                <button
+                  onClick={() => setViewMode("calendar")}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    viewMode === "calendar"
+                      ? "bg-blue-600 text-white"
+                      : "bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  All Days
+                </button>
+                <button
+                  onClick={() => setViewMode("trading")}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    viewMode === "trading"
+                      ? "bg-blue-600 text-white"
+                      : "bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  Trading Only
+                </button>
+              </div>
               <select
                 value={daysToShow}
                 onChange={(e) => setDaysToShow(parseInt(e.target.value))}
@@ -112,35 +191,56 @@ export default function HistoryPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {dates.slice(0, daysToShow).map((date, i) => {
-                    const eiaPrice = prices?.eia?.find((p) => p.date === date);
-                    const futuresPrice = prices?.yahooFutures?.find((p) => p.date === date);
-                    const midlandPrice = prices?.yahooMidland?.find((p) => p.date === date);
+                    const weekend = isWeekend(date);
+
+                    // Get prices with fill-forward for calendar mode
+                    const eiaData = viewMode === "calendar"
+                      ? getPriceWithFillForward(date, eiaMap, dates)
+                      : { value: prices?.eia?.find((p) => p.date === date)?.value ?? null, isFillForward: false };
+                    const futuresData = viewMode === "calendar"
+                      ? getPriceWithFillForward(date, futuresMap, dates)
+                      : { value: prices?.yahooFutures?.find((p) => p.date === date)?.value ?? null, isFillForward: false };
+                    const midlandData = viewMode === "calendar"
+                      ? getPriceWithFillForward(date, midlandMap, dates)
+                      : { value: prices?.yahooMidland?.find((p) => p.date === date)?.value ?? null, isFillForward: false };
 
                     // Calculate estimated net price (using $2.50 transport as default)
                     const transport = 2.50;
-                    const netPrice = futuresPrice?.value && midlandPrice?.value
-                      ? futuresPrice.value + midlandPrice.value - transport
+                    const netPrice = futuresData.value && midlandData.value
+                      ? futuresData.value + midlandData.value - transport
                       : null;
 
+                    // Format date with day of week
+                    const dateObj = new Date(date);
+                    const dayName = dateObj.toLocaleDateString("en-US", { weekday: "short" });
+
                     return (
-                      <tr key={date} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
-                        <td className="px-6 py-3 text-sm text-slate-800 font-medium">
-                          {date}
+                      <tr
+                        key={date}
+                        className={`${weekend ? "bg-slate-100" : i % 2 === 0 ? "bg-white" : "bg-slate-50"}`}
+                      >
+                        <td className="px-6 py-3 text-sm font-medium">
+                          <span className={weekend ? "text-slate-400" : "text-slate-800"}>
+                            {dayName} {date}
+                          </span>
+                          {weekend && (
+                            <span className="ml-2 text-xs text-slate-400">(Weekend)</span>
+                          )}
                         </td>
-                        <td className="px-6 py-3 text-sm text-slate-800 text-right">
-                          {eiaPrice?.value ? `$${eiaPrice.value.toFixed(2)}` : "--"}
+                        <td className={`px-6 py-3 text-sm text-right ${eiaData.isFillForward ? "text-slate-400 italic" : "text-slate-800"}`}>
+                          {eiaData.value ? `$${eiaData.value.toFixed(2)}` : "--"}
                         </td>
-                        <td className="px-6 py-3 text-sm text-slate-800 text-right">
-                          {futuresPrice?.value ? `$${futuresPrice.value.toFixed(2)}` : "--"}
+                        <td className={`px-6 py-3 text-sm text-right ${futuresData.isFillForward ? "text-slate-400 italic" : "text-slate-800"}`}>
+                          {futuresData.value ? `$${futuresData.value.toFixed(2)}` : "--"}
                         </td>
-                        <td className="px-6 py-3 text-sm text-right">
-                          {midlandPrice?.value ? (
-                            <span className={midlandPrice.value >= 0 ? "text-green-600" : "text-red-600"}>
-                              {midlandPrice.value >= 0 ? "+" : ""}${midlandPrice.value.toFixed(2)}
+                        <td className={`px-6 py-3 text-sm text-right ${midlandData.isFillForward ? "italic" : ""}`}>
+                          {midlandData.value ? (
+                            <span className={midlandData.isFillForward ? "text-slate-400" : midlandData.value >= 0 ? "text-green-600" : "text-red-600"}>
+                              {midlandData.value >= 0 ? "+" : ""}${midlandData.value.toFixed(2)}
                             </span>
                           ) : "--"}
                         </td>
-                        <td className="px-6 py-3 text-sm text-blue-600 font-medium text-right">
+                        <td className={`px-6 py-3 text-sm font-medium text-right ${futuresData.isFillForward || midlandData.isFillForward ? "text-slate-400 italic" : "text-blue-600"}`}>
                           {netPrice ? `$${netPrice.toFixed(2)}` : "--"}
                         </td>
                       </tr>
@@ -170,6 +270,11 @@ export default function HistoryPage() {
               <li><strong>Midland Diff</strong> - CME WTI Midland vs WTI differential (WTT)</li>
               <li><strong>Est. Net Price</strong> - Futures + Midland Diff - $2.50 Transport</li>
             </ul>
+            {viewMode === "calendar" && (
+              <p className="mt-3 text-xs text-slate-400 italic">
+                * Italicized values on weekends/holidays use the previous trading day&apos;s price (fill-forward).
+              </p>
+            )}
           </div>
         </div>
       </div>
