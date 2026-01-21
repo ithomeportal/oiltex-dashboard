@@ -120,11 +120,11 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [transportDiff, setTransportDiff] = useState<string>("2.50");
 
-  // Fetch prices
+  // Fetch prices (request 60 calendar days to ensure ~30 trading days)
   const fetchPrices = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/prices?days=30");
+      const res = await fetch("/api/prices?days=60");
       const data = await res.json();
       if (data.success) {
         setPrices(data.data);
@@ -522,25 +522,34 @@ export default function Dashboard() {
                     ${midPrice.toFixed(0)}
                   </text>
 
-                  {/* X-axis labels */}
-                  <text
-                    x={paddingX}
-                    y={chartHeight - 2}
-                    textAnchor="start"
-                    fontSize="10"
-                    fill="#94a3b8"
-                  >
-                    {validPrices[0]?.date}
-                  </text>
-                  <text
-                    x={chartWidth - paddingX}
-                    y={chartHeight - 2}
-                    textAnchor="end"
-                    fontSize="10"
-                    fill="#94a3b8"
-                  >
-                    {validPrices[validPrices.length - 1]?.date}
-                  </text>
+                  {/* X-axis labels - show dates at intervals */}
+                  {(() => {
+                    // Format date to short format (MM/DD)
+                    const formatShortDate = (dateStr: string) => {
+                      const date = new Date(dateStr);
+                      return `${date.getMonth() + 1}/${date.getDate()}`;
+                    };
+
+                    // Show 5 labels evenly distributed
+                    const labelIndices = [0, Math.floor(validPrices.length * 0.25), Math.floor(validPrices.length * 0.5), Math.floor(validPrices.length * 0.75), validPrices.length - 1];
+
+                    return labelIndices.map((idx, i) => {
+                      if (idx >= validPrices.length || !validPrices[idx]) return null;
+                      const p = points[idx];
+                      return (
+                        <text
+                          key={i}
+                          x={p.x}
+                          y={chartHeight - 2}
+                          textAnchor={i === 0 ? "start" : i === labelIndices.length - 1 ? "end" : "middle"}
+                          fontSize="10"
+                          fill="#94a3b8"
+                        >
+                          {formatShortDate(validPrices[idx].date)}
+                        </text>
+                      );
+                    });
+                  })()}
                 </svg>
 
                 {/* Legend */}
