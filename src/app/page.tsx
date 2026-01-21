@@ -111,9 +111,6 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold text-slate-800">
               OilTex Price Dashboard
             </h1>
-            <p className="text-sm text-slate-500">
-              WTI Crude Oil Pricing for New Mexico Purchases
-            </p>
           </div>
           <div className="flex items-center gap-4">
             {isAdmin && (
@@ -311,18 +308,12 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Data Sources */}
-        <div className="mt-8 text-center text-sm text-slate-500">
-          <p>
-            Data sources: EIA (U.S. Energy Information Administration), FRED
-            (Federal Reserve), CME Group via Yahoo Finance
-          </p>
-          {prices?.fetchedAt && (
-            <p className="mt-1">
-              Last updated: {new Date(prices.fetchedAt).toLocaleString()}
-            </p>
-          )}
-        </div>
+        {/* Last Updated */}
+        {prices?.fetchedAt && (
+          <div className="mt-8 text-center text-sm text-slate-500">
+            <p>Last updated: {new Date(prices.fetchedAt).toLocaleString()}</p>
+          </div>
+        )}
       </main>
     </div>
   );

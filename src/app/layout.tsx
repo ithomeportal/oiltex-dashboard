@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "OilTex Price Dashboard",
-  description: "WTI Crude Oil Pricing Dashboard for New Mexico Purchases",
+  description: "OilTex Price Dashboard",
   metadataBase: new URL("https://index.oiltex.com"),
 };
 

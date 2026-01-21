@@ -67,7 +67,7 @@ export default function LoginPage() {
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-slate-800">OilTex Dashboard</h1>
-          <p className="text-slate-500 mt-2">WTI Crude Oil Pricing</p>
+          <p className="text-slate-500 mt-2">Price Dashboard</p>
         </div>
 
         {error && (
