@@ -277,7 +277,7 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {prices?.eia?.slice(0, 15).map((price, i) => {
+                {prices?.eia?.slice(0, 30).map((price, i) => {
                   const futuresPrice = prices.yahooFutures?.find(
                     (p) => p.date === price.date
                   );
