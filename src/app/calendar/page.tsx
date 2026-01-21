@@ -95,8 +95,11 @@ function calculateContractDates(year: number, month: number): ContractDates {
   // 25th of the preceding month
   const the25th = new Date(precedingYear, precedingMonth, 25);
 
-  // Last Trading Day: 3 business days before the 25th
-  const lastTradingDay = subtractBusinessDays(the25th, 3);
+  // CME Rule for WTI CL:
+  // - If 25th is a business day: LTD = 3 business days before the 25th
+  // - If 25th is NOT a business day: LTD = 4 business days before the 25th
+  const daysToSubtract = isBusinessDay(the25th) ? 3 : 4;
+  const lastTradingDay = subtractBusinessDays(the25th, daysToSubtract);
 
   // First Notice Day: 1 business day after Last Trading Day
   const firstNoticeDay = addBusinessDays(lastTradingDay, 1);
