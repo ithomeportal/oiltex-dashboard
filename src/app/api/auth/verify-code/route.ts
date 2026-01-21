@@ -74,20 +74,34 @@ export async function POST(request: Request) {
         );
       }
 
-      // Mark code as used
-      await client.query(`UPDATE auth_codes SET used = TRUE WHERE id = $1`, [
-        result.rows[0].id,
-      ]);
+      // Use transaction to ensure atomicity - don't mark code as used until session is created
+      await client.query('BEGIN');
 
-      // Create session token
-      const token = generateToken();
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+      let token: string;
+      let expiresAt: Date;
 
-      await client.query(
-        `INSERT INTO sessions (email, token, expires_at)
-         VALUES ($1, $2, $3)`,
-        [email, token, expiresAt]
-      );
+      try {
+        // Create session token first
+        token = generateToken();
+        expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+        await client.query(
+          `INSERT INTO sessions (email, token, expires_at)
+           VALUES ($1, $2, $3)`,
+          [email, token, expiresAt]
+        );
+
+        // Mark code as used only after session is created successfully
+        await client.query(`UPDATE auth_codes SET used = TRUE WHERE id = $1`, [
+          result.rows[0].id,
+        ]);
+
+        await client.query('COMMIT');
+      } catch (txError) {
+        await client.query('ROLLBACK');
+        console.error("Transaction failed:", txError);
+        throw txError;
+      }
 
       // Create response with cookie
       const response = NextResponse.json({
