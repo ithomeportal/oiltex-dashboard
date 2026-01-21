@@ -48,6 +48,11 @@ export async function initDatabase() {
       );
     `);
 
+    // Fix code column length if it was created with wrong size
+    await client.query(`
+      ALTER TABLE auth_codes ALTER COLUMN code TYPE VARCHAR(8);
+    `);
+
     // Create sessions table
     await client.query(`
       CREATE TABLE IF NOT EXISTS sessions (
