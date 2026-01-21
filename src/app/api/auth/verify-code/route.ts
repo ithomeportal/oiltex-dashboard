@@ -99,8 +99,9 @@ export async function POST(request: Request) {
         await client.query('COMMIT');
       } catch (txError) {
         await client.query('ROLLBACK');
-        console.error("Transaction failed:", txError);
-        throw txError;
+        const txErrorMsg = txError instanceof Error ? txError.message : String(txError);
+        console.error("Transaction failed:", txErrorMsg, txError);
+        throw new Error(`Session creation failed: ${txErrorMsg}`);
       }
 
       // Create response with cookie
@@ -124,8 +125,9 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     console.error("Error verifying code:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { success: false, error: "Verification failed" },
+      { success: false, error: "Verification failed", details: errorMessage },
       { status: 500 }
     );
   }
