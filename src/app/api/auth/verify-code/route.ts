@@ -23,36 +23,40 @@ export async function POST(request: Request) {
     // Normalize code: trim whitespace
     const normalizedCode = code.toString().trim();
 
+    // Get current UTC time for comparison
+    const nowUtc = new Date().toISOString();
+
     const client = await pool.connect();
     try {
       // Check if code is valid and not expired
-      // Use NOW() AT TIME ZONE 'UTC' for consistent timezone comparison
+      // Compare timestamps in UTC to avoid timezone issues
       const result = await client.query(
         `SELECT id FROM auth_codes
          WHERE email = $1
            AND code = $2
-           AND expires_at > NOW()
+           AND expires_at > $3::timestamptz
            AND used = FALSE
          ORDER BY created_at DESC
          LIMIT 1`,
-        [email, normalizedCode]
+        [email, normalizedCode, nowUtc]
       );
 
       if (result.rows.length === 0) {
         // Log debug info for troubleshooting
         const debugResult = await client.query(
           `SELECT id, email, code, expires_at, used,
-                  NOW() as current_time,
-                  expires_at > NOW() as is_not_expired
+                  $2::timestamptz as current_time,
+                  expires_at > $2::timestamptz as is_not_expired
            FROM auth_codes
            WHERE email = $1
            ORDER BY created_at DESC
            LIMIT 3`,
-          [email]
+          [email, nowUtc]
         );
         console.log("Code verification failed. Debug info:", {
           providedEmail: email,
           providedCode: normalizedCode,
+          currentUtcTime: nowUtc,
           recentCodes: debugResult.rows.map(r => ({
             id: r.id,
             storedCode: r.code,

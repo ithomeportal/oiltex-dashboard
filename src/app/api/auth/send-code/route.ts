@@ -49,6 +49,13 @@ export async function POST(request: Request) {
     // Use explicit UTC timestamp for consistent timezone handling
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
+    console.log("Generating auth code:", {
+      email,
+      code,
+      expiresAt,
+      currentTime: new Date().toISOString()
+    });
+
     // Save code to database
     const client = await pool.connect();
     try {
