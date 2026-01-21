@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import DashboardLayout from "@/components/DashboardLayout";
 
 interface PriceData {
   date: string;
@@ -116,27 +116,9 @@ function getTradeMonthInfo(): TradeMonthInfo {
 }
 
 export default function Dashboard() {
-  const router = useRouter();
-  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
-  const [email, setEmail] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
   const [prices, setPrices] = useState<LivePrices | null>(null);
   const [loading, setLoading] = useState(false);
   const [transportDiff, setTransportDiff] = useState<string>("2.50");
-
-  // Check authentication
-  useEffect(() => {
-    fetch("/api/auth/session")
-      .then((res) => res.json())
-      .then((data) => {
-        setAuthenticated(data.authenticated);
-        if (data.email) setEmail(data.email);
-        if (data.isAdmin) setIsAdmin(data.isAdmin);
-        if (!data.authenticated) {
-          router.push("/login");
-        }
-      });
-  }, [router]);
 
   // Fetch prices
   const fetchPrices = useCallback(async () => {
@@ -155,27 +137,8 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (authenticated) {
-      fetchPrices();
-    }
-  }, [authenticated, fetchPrices]);
-
-  const handleLogout = async () => {
-    await fetch("/api/auth/session", { method: "DELETE" });
-    router.push("/login");
-  };
-
-  if (authenticated === null) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <div className="text-slate-500">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!authenticated) {
-    return null;
-  }
+    fetchPrices();
+  }, [fetchPrices]);
 
   // Get latest values
   const latestWTI = prices?.eia?.find((p) => p.value !== null);
@@ -203,32 +166,7 @@ export default function Dashboard() {
   const tradeMonth = getTradeMonthInfo();
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">
-              OilTex Price Dashboard
-            </h1>
-          </div>
-          <div className="flex items-center gap-4">
-            {isAdmin && (
-              <span className="bg-purple-100 text-purple-700 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                Admin
-              </span>
-            )}
-            <span className="text-sm text-slate-600">{email}</span>
-            <button
-              onClick={handleLogout}
-              className="text-sm text-red-600 hover:text-red-700"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
-
+    <DashboardLayout>
       {/* Trade Month Indicator Banner */}
       <div className="bg-gradient-to-r from-slate-700 to-slate-800 border-b border-slate-600">
         <div className="max-w-7xl mx-auto px-4 py-3">
@@ -603,63 +541,6 @@ export default function Dashboard() {
           })()}
         </div>
 
-        {/* Price History Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-200">
-            <h3 className="text-lg font-semibold text-slate-800">
-              Recent Price History
-            </h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    WTI Spot (EIA)
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    WTI Futures
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Midland Diff
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {prices?.eia?.slice(0, 30).map((price, i) => {
-                  const futuresPrice = prices.yahooFutures?.find(
-                    (p) => p.date === price.date
-                  );
-                  const midlandPrice = prices.yahooMidland?.find(
-                    (p) => p.date === price.date
-                  );
-                  return (
-                    <tr key={price.date} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
-                      <td className="px-6 py-3 text-sm text-slate-800">
-                        {price.date}
-                      </td>
-                      <td className="px-6 py-3 text-sm text-slate-800 text-right">
-                        ${price.value?.toFixed(2) || "--"}
-                      </td>
-                      <td className="px-6 py-3 text-sm text-slate-800 text-right">
-                        ${futuresPrice?.value?.toFixed(2) || "--"}
-                      </td>
-                      <td className="px-6 py-3 text-sm text-green-600 text-right">
-                        {midlandPrice?.value
-                          ? `+$${midlandPrice.value.toFixed(2)}`
-                          : "--"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
         {/* Last Updated */}
         {prices?.fetchedAt && (
           <div className="mt-8 text-center text-sm text-slate-500">
@@ -667,6 +548,6 @@ export default function Dashboard() {
           </div>
         )}
       </main>
-    </div>
+    </DashboardLayout>
   );
 }
