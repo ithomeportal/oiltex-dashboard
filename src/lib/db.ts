@@ -178,3 +178,83 @@ export async function calculateCMA(month: string, source: string) {
     client.release();
   }
 }
+
+// Calculate CMA for all calendar days (including weekends/holidays with fill-forward logic)
+export async function calculateCMAAllDays(month: string, source: string) {
+  const client = await pool.connect();
+  try {
+    // month format: 'YYYY-MM'
+    const [year, monthNum] = month.split("-").map(Number);
+
+    // Get the number of calendar days in the month
+    const daysInMonth = new Date(year, monthNum, 0).getDate();
+
+    // Get all trading day prices for this month, ordered by date
+    const result = await client.query(
+      `SELECT date, value
+       FROM oil_prices
+       WHERE TO_CHAR(date, 'YYYY-MM') = $1
+         AND source = $2
+         AND value IS NOT NULL
+       ORDER BY date ASC`,
+      [month, source]
+    );
+
+    // Also get the last trading day price from the previous month for fill-forward
+    const prevMonthResult = await client.query(
+      `SELECT value
+       FROM oil_prices
+       WHERE date < $1
+         AND source = $2
+         AND value IS NOT NULL
+       ORDER BY date DESC
+       LIMIT 1`,
+      [`${year}-${String(monthNum).padStart(2, "0")}-01`, source]
+    );
+
+    // Create a map of trading day prices
+    const tradingDayPrices: Map<string, number> = new Map();
+    for (const row of result.rows) {
+      const dateStr = new Date(row.date).toISOString().split("T")[0];
+      tradingDayPrices.set(dateStr, parseFloat(row.value));
+    }
+
+    // Get the previous month's last price for fill-forward
+    let lastKnownPrice: number | null =
+      prevMonthResult.rows.length > 0
+        ? parseFloat(prevMonthResult.rows[0].value)
+        : null;
+
+    // Build array of all calendar days with fill-forward logic
+    const allDayPrices: number[] = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+      if (tradingDayPrices.has(dateStr)) {
+        // Trading day - use actual price
+        lastKnownPrice = tradingDayPrices.get(dateStr)!;
+        allDayPrices.push(lastKnownPrice);
+      } else if (lastKnownPrice !== null) {
+        // Non-trading day (weekend/holiday) - use fill-forward price
+        allDayPrices.push(lastKnownPrice);
+      }
+      // If no previous price is available, skip this day
+    }
+
+    // Calculate the average
+    const calendarDays = allDayPrices.length;
+    const cmaAllDays =
+      calendarDays > 0
+        ? allDayPrices.reduce((sum, price) => sum + price, 0) / calendarDays
+        : null;
+
+    return {
+      month,
+      source,
+      cmaAllDays,
+      calendarDays,
+    };
+  } finally {
+    client.release();
+  }
+}

@@ -18,6 +18,103 @@ interface LivePrices {
   fetchedAt: string;
 }
 
+interface TradeMonthInfo {
+  deliveryMonth: string;
+  deliveryYear: number;
+  periodStart: string;
+  periodEnd: string;
+  daysRemaining: number;
+  totalDays: number;
+}
+
+// Calculate trade month information
+// Trade month for delivery month M runs approximately from 26th of M-2 to 25th of M-1
+function getTradeMonthInfo(): TradeMonthInfo {
+  const today = new Date();
+  const currentDay = today.getDate();
+  const currentMonth = today.getMonth(); // 0-indexed
+  const currentYear = today.getFullYear();
+
+  // Determine which delivery month we're trading for
+  // If we're before the 26th, we're in the trade month that started on the 26th of the previous month
+  // If we're on or after the 26th, we're in the new trade month that just started
+  let tradeMonthStartMonth: number;
+  let tradeMonthStartYear: number;
+  let deliveryMonth: number;
+  let deliveryYear: number;
+
+  if (currentDay >= 26) {
+    // New trade month started this month on the 26th
+    tradeMonthStartMonth = currentMonth;
+    tradeMonthStartYear = currentYear;
+    // Delivery month is 2 months ahead
+    deliveryMonth = currentMonth + 2;
+    deliveryYear = currentYear;
+  } else {
+    // Still in trade month that started on the 26th of previous month
+    tradeMonthStartMonth = currentMonth - 1;
+    tradeMonthStartYear = currentYear;
+    if (tradeMonthStartMonth < 0) {
+      tradeMonthStartMonth = 11;
+      tradeMonthStartYear = currentYear - 1;
+    }
+    // Delivery month is 2 months ahead of when trade month started
+    deliveryMonth = tradeMonthStartMonth + 2;
+    deliveryYear = tradeMonthStartYear;
+  }
+
+  // Normalize delivery month/year
+  if (deliveryMonth > 11) {
+    deliveryMonth = deliveryMonth - 12;
+    deliveryYear = deliveryYear + 1;
+  }
+
+  // Calculate trade month end (25th of M-1, which is 1 month before delivery)
+  let tradeMonthEndMonth = deliveryMonth - 1;
+  let tradeMonthEndYear = deliveryYear;
+  if (tradeMonthEndMonth < 0) {
+    tradeMonthEndMonth = 11;
+    tradeMonthEndYear = deliveryYear - 1;
+  }
+
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+
+  const periodStartDate = new Date(tradeMonthStartYear, tradeMonthStartMonth, 26);
+  const periodEndDate = new Date(tradeMonthEndYear, tradeMonthEndMonth, 25);
+
+  // Calculate days remaining (excluding weekends - simplified)
+  let daysRemaining = 0;
+  let totalDays = 0;
+  const checkDate = new Date(periodStartDate);
+
+  while (checkDate <= periodEndDate) {
+    const dayOfWeek = checkDate.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      totalDays++;
+      if (checkDate > today) {
+        daysRemaining++;
+      }
+    }
+    checkDate.setDate(checkDate.getDate() + 1);
+  }
+
+  const formatDate = (date: Date) => {
+    return `${monthNames[date.getMonth()].substring(0, 3)} ${date.getDate()}`;
+  };
+
+  return {
+    deliveryMonth: monthNames[deliveryMonth],
+    deliveryYear,
+    periodStart: formatDate(periodStartDate),
+    periodEnd: formatDate(periodEndDate),
+    daysRemaining,
+    totalDays
+  };
+}
+
 export default function Dashboard() {
   const router = useRouter();
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
@@ -102,6 +199,9 @@ export default function Dashboard() {
   const eiaCMA = calculateCMA(prices?.eia || []);
   const futuresCMA = calculateCMA(prices?.yahooFutures || []);
 
+  // Get trade month information
+  const tradeMonth = getTradeMonthInfo();
+
   return (
     <div className="min-h-screen bg-slate-100">
       {/* Header */}
@@ -128,6 +228,45 @@ export default function Dashboard() {
           </div>
         </div>
       </header>
+
+      {/* Trade Month Indicator Banner */}
+      <div className="bg-gradient-to-r from-slate-700 to-slate-800 border-b border-slate-600">
+        <div className="max-w-7xl mx-auto px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-6">
+              <div>
+                <span className="text-slate-400 text-xs uppercase tracking-wide">Trade Month</span>
+                <div className="text-white font-semibold">
+                  {tradeMonth.deliveryMonth} {tradeMonth.deliveryYear} Delivery
+                </div>
+              </div>
+              <div className="hidden sm:block h-8 w-px bg-slate-600"></div>
+              <div className="hidden sm:block">
+                <span className="text-slate-400 text-xs uppercase tracking-wide">Trading Period</span>
+                <div className="text-slate-200 text-sm">
+                  {tradeMonth.periodStart} - {tradeMonth.periodEnd}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <span className="text-slate-400 text-xs uppercase tracking-wide">Days Remaining</span>
+                <div className="text-white font-semibold">
+                  {tradeMonth.daysRemaining} <span className="text-slate-400 font-normal text-sm">of {tradeMonth.totalDays} trading days</span>
+                </div>
+              </div>
+              <div className="hidden md:block" title="Trading days exclude weekends and US holidays">
+                <svg className="w-4 h-4 text-slate-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div className="mt-2 text-xs text-slate-500">
+            Note: Trading days exclude weekends and US holidays. Dates are approximate.
+          </div>
+        </div>
+      </div>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Refresh button */}
@@ -249,6 +388,219 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* 30-Day WTI Price Trend Chart */}
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-slate-200 mb-8">
+          <h3 className="text-lg font-semibold text-slate-800 mb-4">
+            30-Day WTI Spot Price Trend
+          </h3>
+          {(() => {
+            // Get valid EIA prices and reverse for chronological order
+            const validPrices = (prices?.eia || [])
+              .filter((p) => p.value !== null)
+              .slice(0, 30)
+              .reverse();
+
+            if (validPrices.length < 2) {
+              return (
+                <div className="h-48 flex items-center justify-center text-slate-400">
+                  Not enough data to display chart
+                </div>
+              );
+            }
+
+            const priceValues = validPrices.map((p) => p.value as number);
+            const minPrice = Math.min(...priceValues);
+            const maxPrice = Math.max(...priceValues);
+            const priceRange = maxPrice - minPrice || 1;
+
+            // Add some padding to the price range for better visualization
+            const paddedMin = minPrice - priceRange * 0.1;
+            const paddedMax = maxPrice + priceRange * 0.1;
+            const paddedRange = paddedMax - paddedMin;
+
+            // Chart dimensions
+            const chartWidth = 800;
+            const chartHeight = 200;
+            const paddingX = 50;
+            const paddingY = 20;
+            const graphWidth = chartWidth - paddingX * 2;
+            const graphHeight = chartHeight - paddingY * 2;
+
+            // Calculate points
+            const points = validPrices.map((p, i) => {
+              const x = paddingX + (i / (validPrices.length - 1)) * graphWidth;
+              const y = paddingY + graphHeight - ((p.value as number - paddedMin) / paddedRange) * graphHeight;
+              return { x, y, value: p.value, date: p.date };
+            });
+
+            // Create SVG path for line
+            const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+
+            // Create area path (fill under line)
+            const areaPath = `${linePath} L ${points[points.length - 1].x} ${paddingY + graphHeight} L ${paddingX} ${paddingY + graphHeight} Z`;
+
+            // Calculate mid price for reference line
+            const midPrice = (minPrice + maxPrice) / 2;
+
+            return (
+              <div className="relative">
+                <svg
+                  viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                  className="w-full h-48 md:h-56"
+                  preserveAspectRatio="xMidYMid meet"
+                >
+                  {/* Gradient for area fill */}
+                  <defs>
+                    <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
+                      <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.05" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Background grid lines */}
+                  {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+                    const y = paddingY + graphHeight * (1 - ratio);
+                    return (
+                      <line
+                        key={ratio}
+                        x1={paddingX}
+                        y1={y}
+                        x2={chartWidth - paddingX}
+                        y2={y}
+                        stroke="#e2e8f0"
+                        strokeWidth="1"
+                        strokeDasharray={ratio === 0.5 ? "none" : "4,4"}
+                      />
+                    );
+                  })}
+
+                  {/* Area fill */}
+                  <path d={areaPath} fill="url(#areaGradient)" />
+
+                  {/* Line */}
+                  <path
+                    d={linePath}
+                    fill="none"
+                    stroke="#3b82f6"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+
+                  {/* Data points - show fewer for cleaner look */}
+                  {points.filter((_, i) => i === 0 || i === points.length - 1 || i % 5 === 0).map((p, i) => (
+                    <circle
+                      key={i}
+                      cx={p.x}
+                      cy={p.y}
+                      r="4"
+                      fill="#3b82f6"
+                      stroke="#ffffff"
+                      strokeWidth="2"
+                    />
+                  ))}
+
+                  {/* Max price marker */}
+                  {(() => {
+                    const maxPoint = points.reduce((max, p) => (p.value as number) > (max.value as number) ? p : max, points[0]);
+                    return (
+                      <g>
+                        <circle cx={maxPoint.x} cy={maxPoint.y} r="5" fill="#10b981" stroke="#ffffff" strokeWidth="2" />
+                        <text x={maxPoint.x} y={maxPoint.y - 10} textAnchor="middle" fontSize="10" fill="#10b981" fontWeight="600">
+                          ${(maxPoint.value as number).toFixed(2)}
+                        </text>
+                      </g>
+                    );
+                  })()}
+
+                  {/* Min price marker */}
+                  {(() => {
+                    const minPoint = points.reduce((min, p) => (p.value as number) < (min.value as number) ? p : min, points[0]);
+                    return (
+                      <g>
+                        <circle cx={minPoint.x} cy={minPoint.y} r="5" fill="#ef4444" stroke="#ffffff" strokeWidth="2" />
+                        <text x={minPoint.x} y={minPoint.y + 16} textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="600">
+                          ${(minPoint.value as number).toFixed(2)}
+                        </text>
+                      </g>
+                    );
+                  })()}
+
+                  {/* Y-axis labels */}
+                  <text
+                    x={paddingX - 8}
+                    y={paddingY + graphHeight + 4}
+                    textAnchor="end"
+                    fontSize="10"
+                    fill="#64748b"
+                  >
+                    ${paddedMin.toFixed(0)}
+                  </text>
+                  <text
+                    x={paddingX - 8}
+                    y={paddingY + 4}
+                    textAnchor="end"
+                    fontSize="10"
+                    fill="#64748b"
+                  >
+                    ${paddedMax.toFixed(0)}
+                  </text>
+                  <text
+                    x={paddingX - 8}
+                    y={paddingY + graphHeight / 2 + 4}
+                    textAnchor="end"
+                    fontSize="10"
+                    fill="#64748b"
+                  >
+                    ${midPrice.toFixed(0)}
+                  </text>
+
+                  {/* X-axis labels */}
+                  <text
+                    x={paddingX}
+                    y={chartHeight - 2}
+                    textAnchor="start"
+                    fontSize="10"
+                    fill="#94a3b8"
+                  >
+                    {validPrices[0]?.date}
+                  </text>
+                  <text
+                    x={chartWidth - paddingX}
+                    y={chartHeight - 2}
+                    textAnchor="end"
+                    fontSize="10"
+                    fill="#94a3b8"
+                  >
+                    {validPrices[validPrices.length - 1]?.date}
+                  </text>
+                </svg>
+
+                {/* Legend */}
+                <div className="flex items-center justify-between mt-3 text-sm">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                      <span className="text-slate-600">WTI Spot (EIA)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                      <span className="text-slate-600">High</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                      <span className="text-slate-600">Low</span>
+                    </div>
+                  </div>
+                  <div className="text-slate-400">
+                    {validPrices.length} trading days | Range: ${(maxPrice - minPrice).toFixed(2)}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Price History Table */}
