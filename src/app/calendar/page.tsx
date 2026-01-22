@@ -147,6 +147,8 @@ interface DayInfo {
   isLastTradingDay?: string; // Contract code
   isFirstNoticeDay?: string; // Contract code
   tradePeriods: string[]; // Contract codes for active trade periods
+  isTradeMonthStart: string[]; // Contract codes where this is trade period start (26th)
+  isTradeMonthEnd: string[]; // Contract codes where this is trade period end (25th)
 }
 
 // Generate calendar data for a month
@@ -175,6 +177,8 @@ function generateMonthCalendar(year: number, month: number, contracts: ContractD
         isHoliday: isHoliday(dateStr),
         holidayName: ALL_HOLIDAYS[dateStr],
         tradePeriods: [],
+        isTradeMonthStart: [],
+        isTradeMonthEnd: [],
       };
 
       // Check if this day is a special date for any contract
@@ -191,6 +195,14 @@ function generateMonthCalendar(year: number, month: number, contracts: ContractD
         // Check if day is within trade period
         if (currentDate >= contract.tradeMonthStart && currentDate <= contract.tradeMonthEnd) {
           dayInfo.tradePeriods.push(contractCode);
+        }
+
+        // Check if day is trade month start (26th) or end (25th)
+        if (formatDateStr(contract.tradeMonthStart) === dateStr) {
+          dayInfo.isTradeMonthStart.push(contractCode);
+        }
+        if (formatDateStr(contract.tradeMonthEnd) === dateStr) {
+          dayInfo.isTradeMonthEnd.push(contractCode);
         }
       }
 
@@ -290,6 +302,10 @@ export default function CalendarPage() {
                 <div className="w-4 h-4 rounded bg-yellow-200 border-2 border-yellow-400"></div>
                 <span className="text-slate-600">Today</span>
               </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-blue-100 border-2 border-blue-500 flex items-center justify-center text-[8px] font-bold text-slate-800">26</div>
+                <span className="text-slate-600">Trade Month Start/End (Bold)</span>
+              </div>
             </div>
           </div>
 
@@ -326,7 +342,10 @@ export default function CalendarPage() {
                           let bgColor = "bg-white";
                           let textColor = isCurrentMonth ? "text-slate-800" : "text-slate-300";
                           let border = "";
-                          let extraClasses = "";
+
+                          // Bold the trade month start (26th) and end (25th) days
+                          const isTradeMonthBoundary = day.isTradeMonthStart.length > 0 || day.isTradeMonthEnd.length > 0;
+                          let extraClasses = isCurrentMonth && isTradeMonthBoundary ? "font-bold" : "";
 
                           if (isCurrentMonth) {
                             if (isToday) {
@@ -361,6 +380,10 @@ export default function CalendarPage() {
                                   ? `First Notice Day: ${day.isFirstNoticeDay}`
                                   : day.isHoliday
                                   ? day.holidayName
+                                  : day.isTradeMonthStart.length > 0
+                                  ? `Trade Month Start: ${day.isTradeMonthStart.join(", ")}`
+                                  : day.isTradeMonthEnd.length > 0
+                                  ? `Trade Month End: ${day.isTradeMonthEnd.join(", ")}`
                                   : day.tradePeriods.length > 0
                                   ? `Trade Period: ${day.tradePeriods.join(", ")}`
                                   : ""
