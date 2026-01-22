@@ -15,6 +15,9 @@ interface LivePrices {
   fred: PriceData[];
   yahooFutures: PriceData[];
   yahooMidland: PriceData[];
+  nymex: PriceData[];
+  chartExport: PriceData[];
+  investingCom: PriceData[];
   fetchedAt: string;
 }
 
@@ -147,8 +150,15 @@ export default function Dashboard() {
   const latestFutures = prices?.yahooFutures?.find((p) => p.value !== null);
   const latestMidlandDiff = prices?.yahooMidland?.find((p) => p.value !== null);
 
+  // Get NYMEX settlement (prefer nymex, fallback to chartExport, then investingCom)
+  const latestNymex = prices?.nymex?.find((p) => p.value !== null);
+  const latestChartExport = prices?.chartExport?.find((p) => p.value !== null);
+  const latestInvestingCom = prices?.investingCom?.find((p) => p.value !== null);
+  const latestSettlement = latestNymex || latestChartExport || latestInvestingCom;
+
   // Determine spot price source for display
   const spotSource = latestEIA ? "EIA" : (latestFRED ? "FRED" : null);
+  const settlementSource = latestNymex ? "NYMEX" : (latestChartExport ? "Chart" : (latestInvestingCom ? "Investing" : null));
 
   // Check if we have today's data (cron already ran)
   const today = new Date().toISOString().split("T")[0];
@@ -175,6 +185,14 @@ export default function Dashboard() {
   const spotData = (prices?.eia?.length || 0) > 0 ? prices?.eia : prices?.fred;
   const spotCMA = calculateCMA(spotData || []);
   const futuresCMA = calculateCMA(prices?.yahooFutures || []);
+
+  // NYMEX Settlement CMA (prefer nymex, fallback to chartExport, then investingCom)
+  const nymexData = (prices?.nymex?.length || 0) > 0
+    ? prices?.nymex
+    : (prices?.chartExport?.length || 0) > 0
+      ? prices?.chartExport
+      : prices?.investingCom;
+  const nymexCMA = calculateCMA(nymexData || []);
 
   // Get trade month information
   const tradeMonth = getTradeMonthInfo();
@@ -302,13 +320,19 @@ export default function Dashboard() {
             </h3>
             <div className="space-y-3">
               <div className="flex justify-between items-center py-2 border-b border-slate-100">
-                <span className="text-slate-600">Spot CMA (30 days)</span>
+                <span className="text-slate-600">NYMEX Settlement CMA</span>
+                <span className="font-semibold text-amber-700">
+                  ${nymexCMA || "--"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                <span className="text-slate-600">Spot CMA ({spotSource || "N/A"})</span>
                 <span className="font-semibold text-slate-800">
                   ${spotCMA || "--"}
                 </span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-slate-100">
-                <span className="text-slate-600">Futures CMA (30 days)</span>
+                <span className="text-slate-600">Futures CMA (Yahoo)</span>
                 <span className="font-semibold text-slate-800">
                   ${futuresCMA || "--"}
                 </span>
@@ -316,7 +340,7 @@ export default function Dashboard() {
               <div className="flex justify-between items-center py-2">
                 <span className="text-slate-600">Trading Days</span>
                 <span className="font-semibold text-slate-800">
-                  {spotData?.filter((p) => p.value !== null).length || 0}
+                  {nymexData?.filter((p) => p.value !== null).length || spotData?.filter((p) => p.value !== null).length || 0}
                 </span>
               </div>
             </div>
@@ -343,11 +367,11 @@ export default function Dashboard() {
               <div className="bg-slate-50 rounded-lg p-4">
                 <div className="text-sm text-slate-500 mb-2">Pricing Formula:</div>
                 <div className="font-mono text-sm text-slate-700">
-                  <div>NYMEX CMA TD: ${futuresCMA || "--"}</div>
+                  <div>NYMEX CMA TD: <span className="text-amber-700">${nymexCMA || futuresCMA || "--"}</span></div>
                   <div>+ Midland Diff: ${latestMidlandDiff?.value?.toFixed(2) || "--"}</div>
                   <div>- Transport: ${transport.toFixed(2)}</div>
                   <div className="border-t border-slate-300 mt-2 pt-2 font-bold">
-                    = Net Price: ${(parseFloat(futuresCMA || "0") + midlandDiff - transport).toFixed(2)}
+                    = Net Price: ${(parseFloat(nymexCMA || futuresCMA || "0") + midlandDiff - transport).toFixed(2)}
                   </div>
                 </div>
               </div>

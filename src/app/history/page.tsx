@@ -15,6 +15,9 @@ interface LivePrices {
   fred: PriceData[];
   yahooFutures: PriceData[];
   yahooMidland: PriceData[];
+  nymex: PriceData[];
+  chartExport: PriceData[];
+  investingCom: PriceData[];
   fetchedAt: string;
 }
 
@@ -69,6 +72,9 @@ export default function HistoryPage() {
     prices?.eia?.forEach((p) => dateSet.add(normalizeDate(p.date)));
     prices?.yahooFutures?.forEach((p) => dateSet.add(normalizeDate(p.date)));
     prices?.yahooMidland?.forEach((p) => dateSet.add(normalizeDate(p.date)));
+    prices?.nymex?.forEach((p) => dateSet.add(normalizeDate(p.date)));
+    prices?.chartExport?.forEach((p) => dateSet.add(normalizeDate(p.date)));
+    prices?.investingCom?.forEach((p) => dateSet.add(normalizeDate(p.date)));
     return Array.from(dateSet).sort((a, b) => b.localeCompare(a));
   };
 
@@ -121,6 +127,9 @@ export default function HistoryPage() {
   const eiaMap = buildPriceMap(prices?.eia);
   const futuresMap = buildPriceMap(prices?.yahooFutures);
   const midlandMap = buildPriceMap(prices?.yahooMidland);
+  const nymexMap = buildPriceMap(prices?.nymex);
+  const chartExportMap = buildPriceMap(prices?.chartExport);
+  const investingComMap = buildPriceMap(prices?.investingCom);
 
   // Check if a date is a weekend
   const isWeekend = (dateStr: string) => {
@@ -193,19 +202,22 @@ export default function HistoryPage() {
               <table className="w-full">
                 <thead className="bg-slate-50">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    <th className="px-4 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                       Date
                     </th>
-                    <th className="px-6 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    <th className="px-4 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
                       WTI Spot (EIA)
                     </th>
-                    <th className="px-6 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    <th className="px-4 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      NYMEX Settle
+                    </th>
+                    <th className="px-4 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
                       WTI Futures (CL)
                     </th>
-                    <th className="px-6 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    <th className="px-4 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
                       Midland Diff
                     </th>
-                    <th className="px-6 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    <th className="px-4 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
                       Est. Net Price
                     </th>
                   </tr>
@@ -225,10 +237,32 @@ export default function HistoryPage() {
                       ? getPriceWithFillForward(date, midlandMap, dates)
                       : { value: midlandMap.get(date) ?? null, isFillForward: false };
 
+                    // Get NYMEX settlement - prefer nymex, fallback to chartExport, then investingCom
+                    const getNymexPrice = () => {
+                      const nymexVal = nymexMap.get(date);
+                      if (nymexVal !== undefined) return { value: nymexVal, isFillForward: false };
+                      const chartVal = chartExportMap.get(date);
+                      if (chartVal !== undefined) return { value: chartVal, isFillForward: false };
+                      const invVal = investingComMap.get(date);
+                      if (invVal !== undefined) return { value: invVal, isFillForward: false };
+                      if (viewMode === "calendar") {
+                        // Try fill-forward for calendar view
+                        const ff = getPriceWithFillForward(date, nymexMap, dates);
+                        if (ff.value) return ff;
+                        const ffChart = getPriceWithFillForward(date, chartExportMap, dates);
+                        if (ffChart.value) return ffChart;
+                        return getPriceWithFillForward(date, investingComMap, dates);
+                      }
+                      return { value: null, isFillForward: false };
+                    };
+                    const nymexData = getNymexPrice();
+
                     // Calculate estimated net price (using $2.50 transport as default)
                     const transport = 2.50;
-                    const netPrice = futuresData.value && midlandData.value
-                      ? futuresData.value + midlandData.value - transport
+                    // Use NYMEX settlement if available, otherwise futures
+                    const basePrice = nymexData.value || futuresData.value;
+                    const netPrice = basePrice && midlandData.value
+                      ? basePrice + midlandData.value - transport
                       : null;
 
                     // Format date with day of week
@@ -239,28 +273,31 @@ export default function HistoryPage() {
                         key={date}
                         className={`${weekend ? "bg-slate-100" : i % 2 === 0 ? "bg-white" : "bg-slate-50"}`}
                       >
-                        <td className="px-6 py-3 text-sm font-medium">
+                        <td className="px-4 py-3 text-sm font-medium">
                           <span className={weekend ? "text-slate-400" : "text-slate-800"}>
                             {dayName} {dateFormatted}
                           </span>
                           {weekend && (
-                            <span className="ml-2 text-xs text-slate-400">(Weekend)</span>
+                            <span className="ml-2 text-xs text-slate-400">(Wknd)</span>
                           )}
                         </td>
-                        <td className={`px-6 py-3 text-sm text-right ${eiaData.isFillForward ? "text-slate-400 italic" : "text-slate-800"}`}>
+                        <td className={`px-4 py-3 text-sm text-right ${eiaData.isFillForward ? "text-slate-400 italic" : "text-slate-800"}`}>
                           {eiaData.value ? `$${eiaData.value.toFixed(2)}` : "--"}
                         </td>
-                        <td className={`px-6 py-3 text-sm text-right ${futuresData.isFillForward ? "text-slate-400 italic" : "text-slate-800"}`}>
+                        <td className={`px-4 py-3 text-sm text-right ${nymexData.isFillForward ? "text-slate-400 italic" : "text-amber-700 font-medium"}`}>
+                          {nymexData.value ? `$${nymexData.value.toFixed(2)}` : "--"}
+                        </td>
+                        <td className={`px-4 py-3 text-sm text-right ${futuresData.isFillForward ? "text-slate-400 italic" : "text-slate-800"}`}>
                           {futuresData.value ? `$${futuresData.value.toFixed(2)}` : "--"}
                         </td>
-                        <td className={`px-6 py-3 text-sm text-right ${midlandData.isFillForward ? "italic" : ""}`}>
+                        <td className={`px-4 py-3 text-sm text-right ${midlandData.isFillForward ? "italic" : ""}`}>
                           {midlandData.value ? (
                             <span className={midlandData.isFillForward ? "text-slate-400" : midlandData.value >= 0 ? "text-green-600" : "text-red-600"}>
                               {midlandData.value >= 0 ? "+" : ""}${midlandData.value.toFixed(2)}
                             </span>
                           ) : "--"}
                         </td>
-                        <td className={`px-6 py-3 text-sm font-medium text-right ${futuresData.isFillForward || midlandData.isFillForward ? "text-slate-400 italic" : "text-blue-600"}`}>
+                        <td className={`px-4 py-3 text-sm font-medium text-right ${(nymexData.isFillForward && futuresData.isFillForward) || midlandData.isFillForward ? "text-slate-400 italic" : "text-blue-600"}`}>
                           {netPrice ? `$${netPrice.toFixed(2)}` : "--"}
                         </td>
                       </tr>
@@ -286,9 +323,10 @@ export default function HistoryPage() {
             <h3 className="text-sm font-medium text-slate-700 mb-2">Data Sources</h3>
             <ul className="text-xs text-slate-500 space-y-1">
               <li><strong>WTI Spot (EIA)</strong> - U.S. Energy Information Administration RWTC series</li>
-              <li><strong>WTI Futures</strong> - CME NYMEX Light Sweet Crude Oil (CL) front-month contract</li>
+              <li><strong>NYMEX Settle</strong> - NYMEX WTI settlement price (historical data from imported files)</li>
+              <li><strong>WTI Futures (CL)</strong> - CME NYMEX Light Sweet Crude Oil front-month contract (Yahoo)</li>
               <li><strong>Midland Diff</strong> - CME WTI Midland vs WTI differential (WTT)</li>
-              <li><strong>Est. Net Price</strong> - Futures + Midland Diff - $2.50 Transport</li>
+              <li><strong>Est. Net Price</strong> - (NYMEX Settle or Futures) + Midland Diff - $2.50 Transport</li>
             </ul>
             {viewMode === "calendar" && (
               <p className="mt-3 text-xs text-slate-400 italic">

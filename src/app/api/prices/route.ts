@@ -8,6 +8,9 @@ function transformDbPrices(rows: Array<{ date: string; source: string; price_typ
   const fred: Array<{ date: string; value: number | null; source: string; priceType: string }> = [];
   const yahooFutures: Array<{ date: string; value: number | null; source: string; priceType: string }> = [];
   const yahooMidland: Array<{ date: string; value: number | null; source: string; priceType: string }> = [];
+  const nymex: Array<{ date: string; value: number | null; source: string; priceType: string }> = [];
+  const chartExport: Array<{ date: string; value: number | null; source: string; priceType: string }> = [];
+  const investingCom: Array<{ date: string; value: number | null; source: string; priceType: string }> = [];
 
   for (const row of rows) {
     const priceData = {
@@ -25,6 +28,12 @@ function transformDbPrices(rows: Array<{ date: string; source: string; price_typ
       yahooFutures.push(priceData);
     } else if (row.source === "YAHOO" && row.price_type === "WTI_MIDLAND_DIFF") {
       yahooMidland.push(priceData);
+    } else if (row.source === "NYMEX" || row.source === "NYMEX_EIA") {
+      nymex.push(priceData);
+    } else if (row.source === "CHART_EXPORT") {
+      chartExport.push(priceData);
+    } else if (row.source === "INVESTING_COM") {
+      investingCom.push(priceData);
     }
   }
 
@@ -33,6 +42,9 @@ function transformDbPrices(rows: Array<{ date: string; source: string; price_typ
     fred,
     yahooFutures,
     yahooMidland,
+    nymex,
+    chartExport,
+    investingCom,
     fetchedAt: new Date().toISOString(),
   };
 }
