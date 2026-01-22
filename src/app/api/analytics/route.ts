@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { Pool } from "pg";
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  host: process.env.DATABASE_HOST,
+  port: parseInt(process.env.DATABASE_PORT || "10261"),
+  user: process.env.DATABASE_USER,
+  password: process.env.DATABASE_PASSWORD,
+  database: process.env.DATABASE_NAME,
   ssl: { rejectUnauthorized: false },
 });
 
