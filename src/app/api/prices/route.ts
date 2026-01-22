@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import { fetchAllPrices } from "@/lib/price-fetchers";
 import { getLatestPrices, calculateCMA } from "@/lib/db";
 
+// Normalize date to YYYY-MM-DD format
+function normalizeDate(dateInput: string | Date): string {
+  if (!dateInput) return "";
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return "";
+  return date.toISOString().split("T")[0];
+}
+
 // Transform flat database rows into grouped format expected by frontend
 function transformDbPrices(rows: Array<{ date: string; source: string; price_type: string; value: number | null }>) {
   const eia: Array<{ date: string; value: number | null; source: string; priceType: string }> = [];
@@ -13,8 +21,11 @@ function transformDbPrices(rows: Array<{ date: string; source: string; price_typ
   const investingCom: Array<{ date: string; value: number | null; source: string; priceType: string }> = [];
 
   for (const row of rows) {
+    const normalizedDate = normalizeDate(row.date);
+    if (!normalizedDate) continue; // Skip rows with invalid dates
+
     const priceData = {
-      date: row.date.toString().split("T")[0], // Normalize date format
+      date: normalizedDate, // Properly normalized YYYY-MM-DD format
       value: row.value ? parseFloat(String(row.value)) : null,
       source: row.source,
       priceType: row.price_type,
