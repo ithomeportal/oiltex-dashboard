@@ -42,7 +42,7 @@ export default function HistoryPage() {
   const [prices, setPrices] = useState<LivePrices | null>(null);
   const [loading, setLoading] = useState(false);
   const [daysToShow, setDaysToShow] = useState(30);
-  const [viewMode, setViewMode] = useState<"trading" | "calendar">("calendar");
+  const [viewMode, setViewMode] = useState<"trading" | "calendar">("trading");
 
   const fetchPrices = useCallback(async () => {
     setLoading(true);
