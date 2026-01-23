@@ -303,8 +303,8 @@ export default function CalendarPage() {
                 <span className="text-slate-600">Today</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-blue-100 border-2 border-blue-500 flex items-center justify-center text-[8px] font-bold text-slate-800">26</div>
-                <span className="text-slate-600">Trade Month Start/End (Bold)</span>
+                <div className="w-4 h-4 rounded bg-blue-100 border-2 border-blue-500 flex items-center justify-center text-[8px] font-bold text-fuchsia-700">26</div>
+                <span className="text-slate-600">Trade Month Start/End</span>
               </div>
             </div>
           </div>
@@ -343,9 +343,9 @@ export default function CalendarPage() {
                           let textColor = isCurrentMonth ? "text-slate-800" : "text-slate-300";
                           let border = "";
 
-                          // Bold the trade month start (26th) and end (25th) days
+                          // Bold the trade month start (26th) and end (25th) days with fuchsia color
                           const isTradeMonthBoundary = day.isTradeMonthStart.length > 0 || day.isTradeMonthEnd.length > 0;
-                          let extraClasses = isCurrentMonth && isTradeMonthBoundary ? "font-bold" : "";
+                          let extraClasses = isCurrentMonth && isTradeMonthBoundary ? "font-bold text-fuchsia-700" : "";
 
                           if (isCurrentMonth) {
                             if (isToday) {
