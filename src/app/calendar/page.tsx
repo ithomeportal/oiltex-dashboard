@@ -303,7 +303,7 @@ export default function CalendarPage() {
                 <span className="text-slate-600">Today</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-blue-100 border-2 border-blue-500 flex items-center justify-center text-[8px] font-bold text-fuchsia-700">26</div>
+                <div className="w-4 h-4 rounded bg-fuchsia-100 border-2 border-fuchsia-400 flex items-center justify-center text-[8px] font-bold text-fuchsia-700">26</div>
                 <span className="text-slate-600">Trade Month Start/End</span>
               </div>
             </div>
@@ -348,9 +348,10 @@ export default function CalendarPage() {
                           let extraClasses = isCurrentMonth && isTradeMonthBoundary ? "font-bold" : "";
 
                           if (isCurrentMonth) {
-                            // Apply fuchsia color for trade month boundaries (26th/25th)
+                            // Apply fuchsia styling for trade month boundaries (26th/25th)
                             if (isTradeMonthBoundary) {
                               textColor = "text-fuchsia-700";
+                              bgColor = "bg-fuchsia-100";
                             }
 
                             if (isToday) {
@@ -366,8 +367,11 @@ export default function CalendarPage() {
                               bgColor = "bg-green-200";
                               border = "border border-green-400";
                             } else if (day.isWeekend) {
-                              bgColor = "bg-slate-100";
+                              bgColor = isTradeMonthBoundary ? "bg-fuchsia-100" : "bg-slate-100";
                               textColor = isTradeMonthBoundary ? "text-fuchsia-700" : "text-slate-400";
+                            } else if (isTradeMonthBoundary) {
+                              // Already set above, just need border
+                              border = "border-l-2 border-r-2 border-fuchsia-400";
                             } else if (inTradePeriod) {
                               bgColor = "bg-blue-100";
                               border = "border-l-2 border-r-2 border-blue-400";
