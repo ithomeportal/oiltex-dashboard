@@ -345,9 +345,14 @@ export default function CalendarPage() {
 
                           // Bold the trade month start (26th) and end (25th) days with fuchsia color
                           const isTradeMonthBoundary = day.isTradeMonthStart.length > 0 || day.isTradeMonthEnd.length > 0;
-                          let extraClasses = isCurrentMonth && isTradeMonthBoundary ? "font-bold text-fuchsia-700" : "";
+                          let extraClasses = isCurrentMonth && isTradeMonthBoundary ? "font-bold" : "";
 
                           if (isCurrentMonth) {
+                            // Apply fuchsia color for trade month boundaries (26th/25th)
+                            if (isTradeMonthBoundary) {
+                              textColor = "text-fuchsia-700";
+                            }
+
                             if (isToday) {
                               bgColor = "bg-yellow-200";
                               border = "ring-2 ring-yellow-400";
@@ -362,7 +367,7 @@ export default function CalendarPage() {
                               border = "border border-green-400";
                             } else if (day.isWeekend) {
                               bgColor = "bg-slate-100";
-                              textColor = "text-slate-400";
+                              textColor = isTradeMonthBoundary ? "text-fuchsia-700" : "text-slate-400";
                             } else if (inTradePeriod) {
                               bgColor = "bg-blue-100";
                               border = "border-l-2 border-r-2 border-blue-400";
