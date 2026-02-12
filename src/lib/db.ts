@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import { initOpsInventoryTables } from "./ops-inventory-db";
 
 const pool = new Pool({
   host: process.env.DATABASE_HOST,
@@ -96,6 +97,9 @@ export async function initDatabase() {
         UNIQUE(month, calculation_type, source)
       );
     `);
+
+    // Initialize OPs Inventory tables
+    await initOpsInventoryTables();
 
     console.log("Database tables initialized successfully");
   } finally {
