@@ -211,6 +211,7 @@ export default function TicketsPage() {
                     <th className="px-3 py-3 text-right text-xs font-medium text-slate-500 uppercase">Gravity</th>
                     <th className="px-3 py-3 text-right text-xs font-medium text-slate-500 uppercase">BS&W%</th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase">Driver</th>
+                    <th className="px-3 py-3 text-center text-xs font-medium text-slate-500 uppercase">PDF</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -255,11 +256,29 @@ export default function TicketsPage() {
                         <td className="px-3 py-3 text-sm text-slate-600 max-w-[120px] truncate">
                           {ticket.driver_name ?? "--"}
                         </td>
+                        <td className="px-3 py-3 text-center">
+                          {ticket.file_url ? (
+                            <a
+                              href={ticket.file_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="View original PDF"
+                              className="inline-flex items-center justify-center text-red-500 hover:text-red-700 transition-colors"
+                            >
+                              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z" />
+                                <path d="M8 12h3v1.5H9.5v1H11V16H8v-1.5h1.5v-1H8V12zm4 0h2c.55 0 1 .45 1 1v2c0 .55-.45 1-1 1h-2v-4zm1.5 1.5v1h.5v-1h-.5zM16 12h2v1.5h-1v.5h1V16h-2v-1.5h1v-.5h-1V12z" />
+                              </svg>
+                            </a>
+                          ) : (
+                            <span className="text-slate-300">--</span>
+                          )}
+                        </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={11} className="px-4 py-8 text-center text-sm text-slate-400">
+                      <td colSpan={12} className="px-4 py-8 text-center text-sm text-slate-400">
                         {loading ? "Loading tickets..." : "No tickets found"}
                       </td>
                     </tr>

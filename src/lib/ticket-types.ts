@@ -142,6 +142,7 @@ export interface OilTicket {
   readonly ticket_date: string | null;
   readonly created_at: string;
   readonly updated_at: string;
+  readonly file_url: string | null;
 }
 
 // Query filter params

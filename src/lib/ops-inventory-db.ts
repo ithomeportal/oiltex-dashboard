@@ -300,8 +300,11 @@ export async function getTickets(filters: TicketFilters = {}): Promise<{
 
     const dataParams = [...params, limit, offset];
     const result = await client.query(
-      `SELECT * FROM oil_tickets ${where}
-       ORDER BY ticket_date DESC, id DESC
+      `SELECT t.*, u.file_url
+       FROM oil_tickets t
+       LEFT JOIN oil_ticket_uploads u ON t.upload_id = u.id
+       ${where}
+       ORDER BY t.ticket_date DESC, t.id DESC
        LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,
       dataParams
     );
