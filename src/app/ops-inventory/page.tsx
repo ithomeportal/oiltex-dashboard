@@ -1,27 +1,38 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import DashboardLayout from "@/components/DashboardLayout";
-import type { TicketSummary, OilTicketUpload } from "@/lib/ticket-types";
+import type { TicketSummary, OilTicket } from "@/lib/ticket-types";
+
+function formatTicketDate(dateStr: string | null): string {
+  if (!dateStr) return "--";
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "--";
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
 
 export default function OpsInventoryOverview() {
   const [summary, setSummary] = useState<TicketSummary | null>(null);
-  const [uploads, setUploads] = useState<OilTicketUpload[]>([]);
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [expandedWell, setExpandedWell] = useState<string | null>(null);
+  const [wellTickets, setWellTickets] = useState<ReadonlyArray<OilTicket>>([]);
+  const [wellTicketsLoading, setWellTicketsLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setExpandedWell(null);
+    setWellTickets([]);
     try {
-      const [summaryRes, uploadsRes] = await Promise.all([
-        fetch(`/api/ops-inventory/summary?month=${month}`),
-        fetch("/api/ops-inventory/uploads"),
-      ]);
-      const summaryData = await summaryRes.json();
-      const uploadsData = await uploadsRes.json();
-
-      if (summaryData.success) setSummary(summaryData.data);
-      if (uploadsData.success) setUploads(uploadsData.data.slice(0, 5));
+      const res = await fetch(`/api/ops-inventory/summary?month=${month}`);
+      const data = await res.json();
+      if (data.success) setSummary(data.data);
     } catch (error) {
       console.error("Error fetching ops inventory data:", error);
     } finally {
@@ -33,23 +44,45 @@ export default function OpsInventoryOverview() {
     fetchData();
   }, [fetchData]);
 
+  const handleWellClick = async (shipperName: string) => {
+    if (expandedWell === shipperName) {
+      setExpandedWell(null);
+      setWellTickets([]);
+      return;
+    }
+
+    setExpandedWell(shipperName);
+    setWellTicketsLoading(true);
+
+    try {
+      const [year, monthNum] = month.split("-").map(Number);
+      const daysInMonth = new Date(year, monthNum, 0).getDate();
+      const dateFrom = `${month}-01`;
+      const dateTo = `${month}-${String(daysInMonth).padStart(2, "0")}`;
+
+      const params = new URLSearchParams({
+        shipper: shipperName,
+        dateFrom,
+        dateTo,
+        limit: "100",
+      });
+
+      const res = await fetch(`/api/ops-inventory/tickets?${params.toString()}`);
+      const data = await res.json();
+
+      if (data.success) {
+        setWellTickets(data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching well tickets:", error);
+    } finally {
+      setWellTicketsLoading(false);
+    }
+  };
+
   const formatBbls = (val: number | null | undefined): string => {
     if (val === null || val === undefined) return "0.00";
     return val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  };
-
-  const statusBadge = (status: string) => {
-    const styles: Record<string, string> = {
-      pending: "bg-yellow-100 text-yellow-800",
-      processing: "bg-blue-100 text-blue-800",
-      completed: "bg-green-100 text-green-800",
-      failed: "bg-red-100 text-red-800",
-    };
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] ?? "bg-slate-100 text-slate-600"}`}>
-        {status}
-      </span>
-    );
   };
 
   return (
@@ -106,14 +139,16 @@ export default function OpsInventoryOverview() {
           </div>
 
           {/* Per-Well Breakdown */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 mb-8">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200">
             <div className="px-6 py-4 border-b border-slate-200">
               <h2 className="text-lg font-semibold text-slate-800">Per-Well Breakdown</h2>
+              <p className="text-xs text-slate-400 mt-1">Click a well to see individual tickets</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-slate-50">
                   <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase w-6"></th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Well / Lease</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Operator</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">County</th>
@@ -126,21 +161,24 @@ export default function OpsInventoryOverview() {
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {summary?.wells && summary.wells.length > 0 ? (
-                    summary.wells.map((well, i) => (
-                      <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
-                        <td className="px-4 py-3 text-sm font-medium text-slate-800">{well.shipper_name}</td>
-                        <td className="px-4 py-3 text-sm text-slate-600">{well.operator ?? "--"}</td>
-                        <td className="px-4 py-3 text-sm text-slate-600">{well.county ?? "--"}</td>
-                        <td className="px-4 py-3 text-sm text-slate-600">{well.state ?? "--"}</td>
-                        <td className="px-4 py-3 text-sm text-right text-slate-800">{well.ticket_count}</td>
-                        <td className="px-4 py-3 text-sm text-right text-slate-800">{formatBbls(well.loaded_bbls)}</td>
-                        <td className="px-4 py-3 text-sm text-right text-slate-800">{formatBbls(well.net_bbls)}</td>
-                        <td className="px-4 py-3 text-sm text-right font-medium text-blue-600">{formatBbls(well.delivered_bbls)}</td>
-                      </tr>
-                    ))
+                    summary.wells.map((well, i) => {
+                      const isExpanded = expandedWell === well.shipper_name;
+                      return (
+                        <WellRow
+                          key={i}
+                          well={well}
+                          index={i}
+                          isExpanded={isExpanded}
+                          isLoading={isExpanded && wellTicketsLoading}
+                          tickets={isExpanded ? wellTickets : []}
+                          formatBbls={formatBbls}
+                          onClick={() => handleWellClick(well.shipper_name)}
+                        />
+                      );
+                    })
                   ) : (
                     <tr>
-                      <td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-400">
+                      <td colSpan={9} className="px-4 py-8 text-center text-sm text-slate-400">
                         No ticket data for {month}
                       </td>
                     </tr>
@@ -149,35 +187,135 @@ export default function OpsInventoryOverview() {
               </table>
             </div>
           </div>
-
-          {/* Recent Uploads */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-            <div className="px-6 py-4 border-b border-slate-200">
-              <h2 className="text-lg font-semibold text-slate-800">Recent Uploads</h2>
-            </div>
-            <div className="divide-y divide-slate-200">
-              {uploads.length > 0 ? (
-                uploads.map((upload) => (
-                  <div key={upload.id} className="px-6 py-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-800">{upload.filename}</p>
-                      <p className="text-xs text-slate-400 mt-1">
-                        {new Date(upload.upload_date).toLocaleString()}
-                      </p>
-                    </div>
-                    {statusBadge(upload.status)}
-                  </div>
-                ))
-              ) : (
-                <div className="px-6 py-8 text-center text-sm text-slate-400">
-                  No uploads yet
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </DashboardLayout>
+  );
+}
+
+function WellRow({
+  well,
+  index,
+  isExpanded,
+  isLoading,
+  tickets,
+  formatBbls,
+  onClick,
+}: {
+  well: { shipper_name: string; operator: string | null; county: string | null; state: string | null; ticket_count: number; loaded_bbls: number; net_bbls: number; delivered_bbls: number };
+  index: number;
+  isExpanded: boolean;
+  isLoading: boolean;
+  tickets: ReadonlyArray<OilTicket>;
+  formatBbls: (val: number | null | undefined) => string;
+  onClick: () => void;
+}) {
+  return (
+    <>
+      <tr
+        className={`cursor-pointer transition-colors ${
+          isExpanded ? "bg-blue-50" : index % 2 === 0 ? "bg-white hover:bg-slate-100" : "bg-slate-50 hover:bg-slate-100"
+        }`}
+        onClick={onClick}
+      >
+        <td className="px-4 py-3 text-sm text-slate-400">
+          <svg
+            className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </td>
+        <td className="px-4 py-3 text-sm font-medium text-slate-800">{well.shipper_name}</td>
+        <td className="px-4 py-3 text-sm text-slate-600">{well.operator ?? "--"}</td>
+        <td className="px-4 py-3 text-sm text-slate-600">{well.county ?? "--"}</td>
+        <td className="px-4 py-3 text-sm text-slate-600">{well.state ?? "--"}</td>
+        <td className="px-4 py-3 text-sm text-right text-slate-800">{well.ticket_count}</td>
+        <td className="px-4 py-3 text-sm text-right text-slate-800">{formatBbls(well.loaded_bbls)}</td>
+        <td className="px-4 py-3 text-sm text-right text-slate-800">{formatBbls(well.net_bbls)}</td>
+        <td className="px-4 py-3 text-sm text-right font-medium text-blue-600">{formatBbls(well.delivered_bbls)}</td>
+      </tr>
+      {isExpanded && (
+        <tr>
+          <td colSpan={9} className="p-0">
+            <div className="bg-blue-50/50 border-t border-b border-blue-100 px-8 py-4">
+              {isLoading ? (
+                <p className="text-sm text-slate-400 text-center py-3 animate-pulse">Loading tickets...</p>
+              ) : tickets.length > 0 ? (
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-xs text-slate-500 uppercase">
+                      <th className="px-3 py-2 text-left">Date</th>
+                      <th className="px-3 py-2 text-left">Ticket #</th>
+                      <th className="px-3 py-2 text-left">BOL #</th>
+                      <th className="px-3 py-2 text-left">Driver</th>
+                      <th className="px-3 py-2 text-left">Receiver</th>
+                      <th className="px-3 py-2 text-right">Loaded</th>
+                      <th className="px-3 py-2 text-right">Net</th>
+                      <th className="px-3 py-2 text-right">Delivered</th>
+                      <th className="px-3 py-2 text-right">Gravity</th>
+                      <th className="px-3 py-2 text-center">PDF</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-blue-100">
+                    {tickets.map((ticket) => (
+                      <tr key={ticket.id} className="hover:bg-blue-100/50 transition-colors">
+                        <td className="px-3 py-2 text-sm text-slate-700">
+                          {formatTicketDate(ticket.ticket_date)}
+                        </td>
+                        <td className="px-3 py-2 text-sm font-medium text-blue-600">
+                          <Link href={`/ops-inventory/tickets/${ticket.id}`} className="hover:underline">
+                            {ticket.ticket_number ?? "--"}
+                          </Link>
+                        </td>
+                        <td className="px-3 py-2 text-sm text-slate-600">{ticket.bol_number ?? "--"}</td>
+                        <td className="px-3 py-2 text-sm text-slate-600">{ticket.driver_name ?? "--"}</td>
+                        <td className="px-3 py-2 text-sm text-slate-600">{ticket.receiver_name ?? "--"}</td>
+                        <td className="px-3 py-2 text-sm text-right text-slate-800">
+                          {ticket.loaded_barrels != null ? Number(ticket.loaded_barrels).toFixed(2) : "--"}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-right text-slate-800">
+                          {ticket.net_barrels != null ? Number(ticket.net_barrels).toFixed(2) : "--"}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-right font-medium text-blue-600">
+                          {ticket.delivered_bbls != null ? Number(ticket.delivered_bbls).toFixed(2) : "--"}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-right text-slate-800">
+                          {ticket.obs_gravity != null ? Number(ticket.obs_gravity).toFixed(1) : "--"}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {ticket.file_url ? (
+                            <a
+                              href={ticket.file_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="View original PDF"
+                              className="inline-flex items-center justify-center text-red-500 hover:text-red-700 transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z" />
+                                <path d="M8 12h3v1.5H9.5v1H11V16H8v-1.5h1.5v-1H8V12zm4 0h2c.55 0 1 .45 1 1v2c0 .55-.45 1-1 1h-2v-4zm1.5 1.5v1h.5v-1h-.5zM16 12h2v1.5h-1v.5h1V16h-2v-1.5h1v-.5h-1V12z" />
+                              </svg>
+                            </a>
+                          ) : (
+                            <span className="text-slate-300">--</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-sm text-slate-400 text-center py-3">No tickets found</p>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 

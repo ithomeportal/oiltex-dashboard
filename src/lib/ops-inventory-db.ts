@@ -322,7 +322,10 @@ export async function getTicketById(id: number): Promise<OilTicket | null> {
   const client = await pool.connect();
   try {
     const result = await client.query(
-      `SELECT * FROM oil_tickets WHERE id = $1`,
+      `SELECT t.*, u.file_url
+       FROM oil_tickets t
+       LEFT JOIN oil_ticket_uploads u ON t.upload_id = u.id
+       WHERE t.id = $1`,
       [id]
     );
     return result.rows[0] ?? null;
