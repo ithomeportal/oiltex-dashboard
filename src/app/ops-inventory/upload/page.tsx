@@ -48,59 +48,39 @@ export default function UploadPage() {
     setSuccess(null);
 
     try {
+      let uploadedCount = 0;
+      const errors: string[] = [];
+
       for (const file of Array.from(files)) {
         if (file.type !== "application/pdf") {
-          setError(`${file.name} is not a PDF file`);
+          errors.push(`${file.name} is not a PDF file`);
           continue;
         }
 
-        // Upload to UploadThing via our API
         const formData = new FormData();
         formData.append("file", file);
 
-        const uploadRes = await fetch("/api/uploadthing", {
+        const uploadRes = await fetch("/api/ops-inventory/upload-file", {
           method: "POST",
           body: formData,
         });
 
-        if (!uploadRes.ok) {
-          // Fallback: create upload record with a placeholder URL for batch processing
-          const record = await fetch("/api/ops-inventory/uploads", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              filename: file.name,
-              file_url: `pending://${file.name}`,
-              file_key: `manual-${Date.now()}-${file.name}`,
-              file_size: file.size,
-              uploaded_by: "manual",
-            }),
-          });
-          const recordData = await record.json();
-          if (!recordData.success) {
-            setError(`Failed to create record for ${file.name}`);
-          }
+        const uploadData = await uploadRes.json();
+
+        if (!uploadData.success) {
+          errors.push(`${file.name}: ${uploadData.error || "Upload failed"}`);
           continue;
         }
 
-        const uploadData = await uploadRes.json();
-        if (uploadData && uploadData[0]) {
-          const uploaded = uploadData[0];
-          await fetch("/api/ops-inventory/uploads", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              filename: file.name,
-              file_url: uploaded.url || uploaded.ufsUrl,
-              file_key: uploaded.key,
-              file_size: file.size,
-              uploaded_by: "manual",
-            }),
-          });
-        }
+        uploadedCount++;
       }
 
-      setSuccess(`${files.length} file(s) uploaded successfully`);
+      if (errors.length > 0) {
+        setError(errors.join("; "));
+      }
+      if (uploadedCount > 0) {
+        setSuccess(`${uploadedCount} file(s) uploaded successfully`);
+      }
       await fetchUploads();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
