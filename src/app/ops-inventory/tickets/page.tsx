@@ -1,8 +1,21 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import DashboardLayout from "@/components/DashboardLayout";
 import type { OilTicket } from "@/lib/ticket-types";
+
+function formatTicketDate(dateStr: string | null): string {
+  if (!dateStr) return "--";
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "--";
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
 
 export default function TicketsPage() {
   const [tickets, setTickets] = useState<OilTicket[]>([]);
@@ -205,12 +218,15 @@ export default function TicketsPage() {
                     tickets.map((ticket, i) => (
                       <tr key={ticket.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
                         <td className="px-3 py-3 text-sm text-slate-800">
-                          {ticket.ticket_date
-                            ? new Date(ticket.ticket_date + "T12:00:00").toLocaleDateString()
-                            : "--"}
+                          {formatTicketDate(ticket.ticket_date)}
                         </td>
                         <td className="px-3 py-3 text-sm font-medium text-blue-600">
-                          {ticket.ticket_number ?? "--"}
+                          <Link
+                            href={`/ops-inventory/tickets/${ticket.id}`}
+                            className="hover:underline"
+                          >
+                            {ticket.ticket_number ?? "--"}
+                          </Link>
                         </td>
                         <td className="px-3 py-3 text-sm text-slate-600">
                           {ticket.bol_number ?? "--"}
