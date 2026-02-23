@@ -17,10 +17,15 @@ function formatTicketDate(dateStr: string | null): string {
   });
 }
 
+type FilterMode = "month" | "range";
+
 export default function OpsInventoryOverview() {
   const [summary, setSummary] = useState<TicketSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [filterMode, setFilterMode] = useState<FilterMode>("month");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [expandedWell, setExpandedWell] = useState<string | null>(null);
   const [wellTickets, setWellTickets] = useState<ReadonlyArray<OilTicket>>([]);
   const [wellTicketsLoading, setWellTicketsLoading] = useState(false);
@@ -30,7 +35,14 @@ export default function OpsInventoryOverview() {
     setExpandedWell(null);
     setWellTickets([]);
     try {
-      const res = await fetch(`/api/ops-inventory/summary?month=${month}`);
+      const params = new URLSearchParams();
+      if (filterMode === "range" && dateFrom && dateTo) {
+        params.set("dateFrom", dateFrom);
+        params.set("dateTo", dateTo);
+      } else {
+        params.set("month", month);
+      }
+      const res = await fetch(`/api/ops-inventory/summary?${params.toString()}`);
       const data = await res.json();
       if (data.success) setSummary(data.data);
     } catch (error) {
@@ -38,7 +50,7 @@ export default function OpsInventoryOverview() {
     } finally {
       setLoading(false);
     }
-  }, [month]);
+  }, [month, filterMode, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchData();
@@ -55,19 +67,19 @@ export default function OpsInventoryOverview() {
     setWellTicketsLoading(true);
 
     try {
-      const [year, monthNum] = month.split("-").map(Number);
-      const daysInMonth = new Date(year, monthNum, 0).getDate();
-      const dateFrom = `${month}-01`;
-      const dateTo = `${month}-${String(daysInMonth).padStart(2, "0")}`;
+      const ticketParams = new URLSearchParams({ shipper: shipperName, limit: "100" });
 
-      const params = new URLSearchParams({
-        shipper: shipperName,
-        dateFrom,
-        dateTo,
-        limit: "100",
-      });
+      if (filterMode === "range" && dateFrom && dateTo) {
+        ticketParams.set("dateFrom", dateFrom);
+        ticketParams.set("dateTo", dateTo);
+      } else {
+        const [year, monthNum] = month.split("-").map(Number);
+        const daysInMonth = new Date(year, monthNum, 0).getDate();
+        ticketParams.set("dateFrom", `${month}-01`);
+        ticketParams.set("dateTo", `${month}-${String(daysInMonth).padStart(2, "0")}`);
+      }
 
-      const res = await fetch(`/api/ops-inventory/tickets?${params.toString()}`);
+      const res = await fetch(`/api/ops-inventory/tickets?${ticketParams.toString()}`);
       const data = await res.json();
 
       if (data.success) {
@@ -85,6 +97,24 @@ export default function OpsInventoryOverview() {
     return val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  // Calculate transit variance
+  const netBbls = summary?.total_net_bbls ?? 0;
+  const deliveredBbls = summary?.total_delivered_bbls ?? 0;
+  const varianceBbls = netBbls - deliveredBbls;
+  const variancePct = netBbls > 0 ? (varianceBbls / netBbls) * 100 : 0;
+  const varianceColor =
+    Math.abs(variancePct) < 0.5
+      ? "text-green-600"
+      : Math.abs(variancePct) < 1
+        ? "text-amber-600"
+        : "text-red-600";
+  const varianceBgColor =
+    Math.abs(variancePct) < 0.5
+      ? "bg-green-100"
+      : Math.abs(variancePct) < 1
+        ? "bg-amber-100"
+        : "bg-red-100";
+
   return (
     <DashboardLayout>
       <div className="p-8">
@@ -98,12 +128,55 @@ export default function OpsInventoryOverview() {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <input
-                type="month"
-                value={month}
-                onChange={(e) => setMonth(e.target.value)}
-                className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 bg-white"
-              />
+              {/* Filter Mode Toggle */}
+              <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+                <button
+                  onClick={() => setFilterMode("month")}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    filterMode === "month"
+                      ? "bg-blue-600 text-white"
+                      : "bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  Month
+                </button>
+                <button
+                  onClick={() => setFilterMode("range")}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    filterMode === "range"
+                      ? "bg-blue-600 text-white"
+                      : "bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  Custom Range
+                </button>
+              </div>
+
+              {filterMode === "month" ? (
+                <input
+                  type="month"
+                  value={month}
+                  onChange={(e) => setMonth(e.target.value)}
+                  className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 bg-white"
+                />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 bg-white"
+                  />
+                  <span className="text-slate-400 text-sm">to</span>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 bg-white"
+                  />
+                </div>
+              )}
+
               <button
                 onClick={fetchData}
                 disabled={loading}
@@ -115,7 +188,7 @@ export default function OpsInventoryOverview() {
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
             <SummaryCard
               label="Total Loaded BBLs"
               value={formatBbls(summary?.total_loaded_bbls)}
@@ -136,6 +209,23 @@ export default function OpsInventoryOverview() {
               value={String(summary?.total_tickets ?? 0)}
               icon="count"
             />
+            {/* Transit Variance Card */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${varianceBgColor} ${varianceColor}`}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                  </svg>
+                </div>
+                <span className="text-sm text-slate-500">Transit Variance</span>
+              </div>
+              <p className={`text-2xl font-bold ${varianceColor}`}>
+                {formatBbls(varianceBbls)} BBLs
+              </p>
+              <p className={`text-xs mt-1 ${varianceColor}`}>
+                {variancePct.toFixed(2)}% (Net - Delivered)
+              </p>
+            </div>
           </div>
 
           {/* Per-Well Breakdown */}
@@ -179,7 +269,7 @@ export default function OpsInventoryOverview() {
                   ) : (
                     <tr>
                       <td colSpan={9} className="px-4 py-8 text-center text-sm text-slate-400">
-                        No ticket data for {month}
+                        No ticket data for {summary?.month ?? month}
                       </td>
                     </tr>
                   )}

@@ -264,7 +264,37 @@ export default function Dashboard() {
         </div>
 
         {/* Price Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+          {/* WTI Index (canonical reference price) */}
+          <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl shadow-sm p-6 text-white">
+            <div className="text-sm text-amber-100 mb-1">WTI Index</div>
+            <div className="text-3xl font-bold">
+              ${latestWTI?.value?.toFixed(2) || "--"}
+            </div>
+            {(() => {
+              const wtiData = (prices?.eia?.length || 0) > 0 ? prices?.eia : prices?.fred;
+              const prev = wtiData?.filter((p) => p.value !== null)?.[1];
+              if (latestWTI?.value && prev?.value) {
+                const change = latestWTI.value - prev.value;
+                const changePct = (change / prev.value) * 100;
+                return (
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className={`text-sm font-medium ${change >= 0 ? "text-green-200" : "text-red-200"}`}>
+                      {change >= 0 ? "+" : ""}{change.toFixed(2)} ({changePct.toFixed(2)}%)
+                    </span>
+                    <svg className={`w-4 h-4 ${change >= 0 ? "text-green-200" : "text-red-200 rotate-180"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+            <div className="text-xs text-amber-200 mt-1">
+              {spotSource || "N/A"} | {latestWTI?.date || "N/A"}
+            </div>
+          </div>
+
           {/* WTI Spot (EIA or FRED fallback) */}
           <div className="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
             <div className="text-sm text-slate-500 mb-1">WTI Cushing Spot</div>

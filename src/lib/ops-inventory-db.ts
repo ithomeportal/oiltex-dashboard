@@ -384,10 +384,21 @@ export async function updateTicket(
   }
 }
 
-export async function getTicketSummary(month?: string): Promise<TicketSummary> {
+export async function getTicketSummary(
+  options: { month?: string; dateFrom?: string; dateTo?: string } = {}
+): Promise<TicketSummary> {
   const client = await pool.connect();
   try {
-    const targetMonth = month ?? new Date().toISOString().slice(0, 7);
+    // Determine filter: custom date range takes priority over month
+    const hasDateRange = options.dateFrom && options.dateTo;
+    const targetMonth = options.month ?? new Date().toISOString().slice(0, 7);
+
+    const whereClause = hasDateRange
+      ? "WHERE ticket_date >= $1 AND ticket_date <= $2"
+      : "WHERE TO_CHAR(ticket_date, 'YYYY-MM') = $1";
+    const queryParams: string[] = hasDateRange
+      ? [options.dateFrom!, options.dateTo!]
+      : [targetMonth];
 
     // Aggregate totals
     const totalsResult = await client.query(
@@ -399,8 +410,8 @@ export async function getTicketSummary(month?: string): Promise<TicketSummary> {
          AVG(obs_gravity) as avg_gravity,
          AVG(bsw_percent) as avg_bsw
        FROM oil_tickets
-       WHERE TO_CHAR(ticket_date, 'YYYY-MM') = $1`,
-      [targetMonth]
+       ${whereClause}`,
+      queryParams
     );
 
     // Per-well breakdown
@@ -415,10 +426,10 @@ export async function getTicketSummary(month?: string): Promise<TicketSummary> {
          COALESCE(SUM(net_barrels), 0) as net_bbls,
          COALESCE(SUM(delivered_bbls), 0) as delivered_bbls
        FROM oil_tickets
-       WHERE TO_CHAR(ticket_date, 'YYYY-MM') = $1
+       ${whereClause}
        GROUP BY shipper_name, operator, shipper_county, shipper_state
        ORDER BY loaded_bbls DESC`,
-      [targetMonth]
+      queryParams
     );
 
     const totals = totalsResult.rows[0];
@@ -433,8 +444,12 @@ export async function getTicketSummary(month?: string): Promise<TicketSummary> {
       delivered_bbls: parseFloat(row.delivered_bbls),
     }));
 
+    const label = hasDateRange
+      ? `${options.dateFrom} to ${options.dateTo}`
+      : targetMonth;
+
     return {
-      month: targetMonth,
+      month: label,
       total_tickets: parseInt(totals.total_tickets, 10),
       total_loaded_bbls: parseFloat(totals.total_loaded_bbls),
       total_net_bbls: parseFloat(totals.total_net_bbls),

@@ -5,8 +5,10 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const month = searchParams.get("month") ?? undefined;
+    const dateFrom = searchParams.get("dateFrom") ?? undefined;
+    const dateTo = searchParams.get("dateTo") ?? undefined;
 
-    const summary = await getTicketSummary(month);
+    const summary = await getTicketSummary({ month, dateFrom, dateTo });
 
     return NextResponse.json({ success: true, data: summary });
   } catch (error) {

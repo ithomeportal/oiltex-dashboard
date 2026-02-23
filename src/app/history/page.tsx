@@ -125,6 +125,7 @@ export default function HistoryPage() {
 
   // Build price maps for fill-forward lookups
   const eiaMap = buildPriceMap(prices?.eia);
+  const fredMap = buildPriceMap(prices?.fred);
   const futuresMap = buildPriceMap(prices?.yahooFutures);
   const midlandMap = buildPriceMap(prices?.yahooMidland);
   const nymexMap = buildPriceMap(prices?.nymex);
@@ -205,6 +206,9 @@ export default function HistoryPage() {
                     <th className="px-4 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                       Date
                     </th>
+                    <th className="px-4 py-4 text-right text-xs font-medium text-amber-600 uppercase tracking-wider font-semibold">
+                      WTI Index
+                    </th>
                     <th className="px-4 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
                       WTI Spot (EIA)
                     </th>
@@ -225,6 +229,21 @@ export default function HistoryPage() {
                 <tbody className="divide-y divide-slate-200">
                   {dates.slice(0, daysToShow).map((date, i) => {
                     const weekend = isWeekend(date);
+
+                    // WTI Index: prefer EIA, fallback to FRED
+                    const getWtiIndex = () => {
+                      const eiaVal = eiaMap.get(date);
+                      if (eiaVal !== undefined && eiaVal !== null) return { value: eiaVal, isFillForward: false };
+                      const fredVal = fredMap.get(date);
+                      if (fredVal !== undefined && fredVal !== null) return { value: fredVal, isFillForward: false };
+                      if (viewMode === "calendar") {
+                        const ffEia = getPriceWithFillForward(date, eiaMap, dates);
+                        if (ffEia.value !== null) return ffEia;
+                        return getPriceWithFillForward(date, fredMap, dates);
+                      }
+                      return { value: null, isFillForward: false };
+                    };
+                    const wtiIndexData = getWtiIndex();
 
                     // Get prices - use map lookup (already normalized)
                     const eiaData = viewMode === "calendar"
@@ -281,6 +300,9 @@ export default function HistoryPage() {
                             <span className="ml-2 text-xs text-slate-400">(Wknd)</span>
                           )}
                         </td>
+                        <td className={`px-4 py-3 text-sm text-right font-medium ${wtiIndexData.isFillForward ? "text-amber-400 italic" : "text-amber-700"}`}>
+                          {wtiIndexData.value ? `$${wtiIndexData.value.toFixed(2)}` : "--"}
+                        </td>
                         <td className={`px-4 py-3 text-sm text-right ${eiaData.isFillForward ? "text-slate-400 italic" : "text-slate-800"}`}>
                           {eiaData.value ? `$${eiaData.value.toFixed(2)}` : "--"}
                         </td>
@@ -322,6 +344,7 @@ export default function HistoryPage() {
           <div className="mt-6 p-4 bg-slate-50 rounded-lg">
             <h3 className="text-sm font-medium text-slate-700 mb-2">Data Sources</h3>
             <ul className="text-xs text-slate-500 space-y-1">
+              <li><strong>WTI Index</strong> - Consolidated reference price (EIA preferred, FRED fallback)</li>
               <li><strong>WTI Spot (EIA)</strong> - U.S. Energy Information Administration RWTC series</li>
               <li><strong>NYMEX Settle</strong> - NYMEX WTI settlement price (historical data from imported files)</li>
               <li><strong>WTI Futures (CL)</strong> - CME NYMEX Light Sweet Crude Oil front-month contract (Yahoo)</li>
