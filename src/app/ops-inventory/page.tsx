@@ -103,17 +103,17 @@ export default function OpsInventoryOverview() {
   const varianceBbls = netBbls - deliveredBbls;
   const variancePct = netBbls > 0 ? (varianceBbls / netBbls) * 100 : 0;
   const varianceColor =
-    Math.abs(variancePct) < 0.5
+    varianceBbls === 0
       ? "text-green-600"
-      : Math.abs(variancePct) < 1
-        ? "text-amber-600"
-        : "text-red-600";
+      : varianceBbls > 0
+        ? "text-red-600"
+        : "text-amber-600";
   const varianceBgColor =
-    Math.abs(variancePct) < 0.5
+    varianceBbls === 0
       ? "bg-green-100"
-      : Math.abs(variancePct) < 1
-        ? "bg-amber-100"
-        : "bg-red-100";
+      : varianceBbls > 0
+        ? "bg-red-100"
+        : "bg-amber-100";
 
   return (
     <DashboardLayout>
