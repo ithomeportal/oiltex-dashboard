@@ -98,6 +98,22 @@ export async function initDatabase() {
       );
     `);
 
+    // Create argus_reports table for storing Argus PDF reports
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS argus_reports (
+        id SERIAL PRIMARY KEY,
+        report_date DATE NOT NULL,
+        report_type VARCHAR(100) NOT NULL DEFAULT 'Americas Crude',
+        subject VARCHAR(500),
+        filename VARCHAR(255) NOT NULL,
+        file_url TEXT NOT NULL,
+        file_key VARCHAR(255) NOT NULL,
+        file_size INTEGER,
+        fetched_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(report_date, report_type)
+      );
+    `);
+
     // Initialize OPs Inventory tables
     await initOpsInventoryTables();
 

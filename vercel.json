@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/fetch-prices",
       "schedule": "0 9 * * 1-5"
+    },
+    {
+      "path": "/api/cron/fetch-argus",
+      "schedule": "0 5 * * 2-6"
     }
   ],
   "redirects": [
