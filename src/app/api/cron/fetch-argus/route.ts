@@ -88,9 +88,11 @@ export async function GET(request: Request) {
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error) {
-    console.error("Argus cron error:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
+    console.error("Argus cron error:", message, stack);
     return NextResponse.json(
-      { success: false, error: "Argus cron job failed" },
+      { success: false, error: message },
       { status: 500 }
     );
   }
