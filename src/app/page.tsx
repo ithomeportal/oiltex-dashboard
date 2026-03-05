@@ -47,49 +47,38 @@ interface TradeMonthInfo {
   totalDays: number;
 }
 
-// Calculate trade month information
-// Trade month for delivery month M runs approximately from 26th of M-2 to 25th of M-1
 function getTradeMonthInfo(): TradeMonthInfo {
   const today = new Date();
   const currentDay = today.getDate();
-  const currentMonth = today.getMonth(); // 0-indexed
+  const currentMonth = today.getMonth();
   const currentYear = today.getFullYear();
 
-  // Determine which delivery month we're trading for
-  // If we're before the 26th, we're in the trade month that started on the 26th of the previous month
-  // If we're on or after the 26th, we're in the new trade month that just started
   let tradeMonthStartMonth: number;
   let tradeMonthStartYear: number;
   let deliveryMonth: number;
   let deliveryYear: number;
 
   if (currentDay >= 26) {
-    // New trade month started this month on the 26th
     tradeMonthStartMonth = currentMonth;
     tradeMonthStartYear = currentYear;
-    // Delivery month is 2 months ahead
     deliveryMonth = currentMonth + 2;
     deliveryYear = currentYear;
   } else {
-    // Still in trade month that started on the 26th of previous month
     tradeMonthStartMonth = currentMonth - 1;
     tradeMonthStartYear = currentYear;
     if (tradeMonthStartMonth < 0) {
       tradeMonthStartMonth = 11;
       tradeMonthStartYear = currentYear - 1;
     }
-    // Delivery month is 2 months ahead of when trade month started
     deliveryMonth = tradeMonthStartMonth + 2;
     deliveryYear = tradeMonthStartYear;
   }
 
-  // Normalize delivery month/year
   if (deliveryMonth > 11) {
     deliveryMonth = deliveryMonth - 12;
     deliveryYear = deliveryYear + 1;
   }
 
-  // Calculate trade month end (25th of M-1, which is 1 month before delivery)
   let tradeMonthEndMonth = deliveryMonth - 1;
   let tradeMonthEndYear = deliveryYear;
   if (tradeMonthEndMonth < 0) {
@@ -105,7 +94,6 @@ function getTradeMonthInfo(): TradeMonthInfo {
   const periodStartDate = new Date(tradeMonthStartYear, tradeMonthStartMonth, 26);
   const periodEndDate = new Date(tradeMonthEndYear, tradeMonthEndMonth, 25);
 
-  // Calculate days remaining (excluding weekends - simplified)
   let daysRemaining = 0;
   let totalDays = 0;
   const checkDate = new Date(periodStartDate);
@@ -135,13 +123,29 @@ function getTradeMonthInfo(): TradeMonthInfo {
   };
 }
 
+// Lease differentials from Exhibit A
+const LEASE_DIFF_WTI = 2.26; // highest contractual rate
+const LEASE_DIFF_WTL = 2.26;
+
+function ChangeArrow({ value }: { value: number }) {
+  if (value === 0) return null;
+  return (
+    <svg className={`w-3 h-3 inline-block ml-0.5 ${value > 0 ? "text-green-400" : "text-red-400 rotate-180"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 15l7-7 7 7" />
+    </svg>
+  );
+}
+
+function formatDiffSigned(val: number | null | undefined): string {
+  if (val === null || val === undefined) return "--";
+  return `${val >= 0 ? "+" : ""}${val.toFixed(4)}`;
+}
+
 export default function Dashboard() {
   const [prices, setPrices] = useState<LivePrices | null>(null);
   const [argusPricing, setArgusPricing] = useState<ArgusPricingLatest | null>(null);
   const [loading, setLoading] = useState(false);
-  const [transportDiff, setTransportDiff] = useState<string>("2.26");
 
-  // Fetch prices (request 60 calendar days to ensure ~30 trading days)
   const fetchPrices = useCallback(async () => {
     setLoading(true);
     try {
@@ -159,7 +163,6 @@ export default function Dashboard() {
 
   const fetchArgusPricing = useCallback(async () => {
     try {
-      // First get available months, then fetch the most recent one
       const initRes = await fetch("/api/argus-pricing?month=_");
       const initData = await initRes.json();
       const latestMonth = initData?.data?.months?.[0];
@@ -189,559 +192,369 @@ export default function Dashboard() {
     fetchArgusPricing();
   }, [fetchPrices, fetchArgusPricing]);
 
-  // Get latest values (with fallbacks)
+  // Latest market data
   const latestEIA = prices?.eia?.find((p) => p.value !== null);
   const latestFRED = prices?.fred?.find((p) => p.value !== null);
-  const latestWTI = latestEIA || latestFRED; // Use FRED as fallback for spot price
+  const latestWTI = latestEIA || latestFRED;
   const latestFutures = prices?.yahooFutures?.find((p) => p.value !== null);
   const latestMidlandDiff = prices?.yahooMidland?.find((p) => p.value !== null);
 
-  // Get NYMEX settlement (prefer nymex, fallback to chartExport, then investingCom)
   const latestNymex = prices?.nymex?.find((p) => p.value !== null);
   const latestChartExport = prices?.chartExport?.find((p) => p.value !== null);
   const latestInvestingCom = prices?.investingCom?.find((p) => p.value !== null);
   const latestSettlement = latestNymex || latestChartExport || latestInvestingCom;
 
-  // Determine spot price source for display
   const spotSource = latestEIA ? "EIA" : (latestFRED ? "FRED" : null);
   const settlementSource = latestNymex ? "NYMEX" : (latestChartExport ? "Chart" : (latestInvestingCom ? "Investing" : null));
 
-  // Check if we have today's data (cron already ran)
   const today = new Date().toISOString().split("T")[0];
   const hasTodayData = !!(
     prices?.yahooFutures?.some((p) => p.date === today) ||
     prices?.yahooMidland?.some((p) => p.date === today)
   );
 
-  // Calculate estimated pricing
-  const nymexBase = latestFutures?.value || 0;
-  const midlandDiff = latestMidlandDiff?.value || 0;
-  const transport = parseFloat(transportDiff) || 0;
-  const estimatedPrice = nymexBase + midlandDiff - transport;
-
-  // Calculate CMA from available data
-  const calculateCMA = (data: PriceData[]) => {
-    const validPrices = data?.filter((p) => p.value !== null) || [];
-    if (validPrices.length === 0) return null;
-    const sum = validPrices.reduce((acc, p) => acc + (p.value || 0), 0);
-    return (sum / validPrices.length).toFixed(2);
-  };
-
-  // Use EIA or FRED for spot CMA (prefer EIA, fallback to FRED)
+  // Spot price change
   const spotData = (prices?.eia?.length || 0) > 0 ? prices?.eia : prices?.fred;
-  const spotCMA = calculateCMA(spotData || []);
-  const futuresCMA = calculateCMA(prices?.yahooFutures || []);
+  const prevWTI = spotData?.filter((p) => p.value !== null)?.[1];
+  const wtiChange = latestWTI?.value && prevWTI?.value ? latestWTI.value - prevWTI.value : 0;
+  const wtiChangePct = prevWTI?.value ? (wtiChange / prevWTI.value) * 100 : 0;
 
-  // NYMEX Settlement CMA (prefer nymex, fallback to chartExport, then investingCom)
-  const nymexData = (prices?.nymex?.length || 0) > 0
-    ? prices?.nymex
-    : (prices?.chartExport?.length || 0) > 0
-      ? prices?.chartExport
-      : prices?.investingCom;
-  const nymexCMA = calculateCMA(nymexData || []);
+  // Argus-derived net prices
+  const wtiEstNet = argusPricing?.est_net_mtd !== null && argusPricing?.est_net_mtd !== undefined
+    ? argusPricing.est_net_mtd - LEASE_DIFF_WTI
+    : null;
+  const wtlEstNet = argusPricing?.wtl_midland_wtd_avg !== null && argusPricing?.wtl_midland_wtd_avg !== undefined
+    ? argusPricing.wtl_midland_wtd_avg - LEASE_DIFF_WTL
+    : null;
 
-  // Get trade month information
   const tradeMonth = getTradeMonthInfo();
 
   return (
     <DashboardLayout>
-      {/* Trade Month Indicator Banner */}
-      <div className="bg-gradient-to-r from-slate-700 to-slate-800 border-b border-slate-600">
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-4">
+      {/* Trade Month Banner */}
+      <div className="bg-slate-900 border-b border-slate-700">
+        <div className="max-w-7xl mx-auto px-4 py-2.5">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
-              <div>
-                <span className="text-slate-400 text-xs uppercase tracking-wide">Trade Month</span>
-                <div className="text-white font-semibold">
-                  {tradeMonth.deliveryMonth} {tradeMonth.deliveryYear} Delivery
-                </div>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500 text-xs font-medium uppercase tracking-wider">Delivery</span>
+                <span className="text-white font-bold text-sm">
+                  {tradeMonth.deliveryMonth} {tradeMonth.deliveryYear}
+                </span>
               </div>
-              <div className="hidden sm:block h-8 w-px bg-slate-600"></div>
-              <div className="hidden sm:block">
-                <span className="text-slate-400 text-xs uppercase tracking-wide">Trading Period</span>
-                <div className="text-slate-200 text-sm">
-                  {tradeMonth.periodStart} - {tradeMonth.periodEnd}
-                </div>
-              </div>
+              <div className="hidden sm:block h-4 w-px bg-slate-700"></div>
+              <span className="hidden sm:inline text-slate-400 text-xs">
+                {tradeMonth.periodStart} — {tradeMonth.periodEnd}
+              </span>
             </div>
             <div className="flex items-center gap-4">
-              <div className="text-right">
-                <span className="text-slate-400 text-xs uppercase tracking-wide">Days Remaining</span>
-                <div className="text-white font-semibold">
-                  {tradeMonth.daysRemaining} <span className="text-slate-400 font-normal text-sm">of {tradeMonth.totalDays} trading days</span>
-                </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">Trading Days</span>
+                <span className="font-mono text-sm text-white font-bold">{tradeMonth.daysRemaining}</span>
+                <span className="text-slate-500 text-xs">/ {tradeMonth.totalDays}</span>
               </div>
-              <div className="hidden md:block" title="Trading days exclude weekends and US holidays">
-                <svg className="w-4 h-4 text-slate-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
+              {hasTodayData && (
+                <span className="text-xs text-green-400 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
+                  LIVE
+                </span>
+              )}
+              <button
+                onClick={() => { fetchPrices(); fetchArgusPricing(); }}
+                disabled={loading}
+                className="text-xs px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-600 transition-colors disabled:opacity-50"
+              >
+                {loading ? "..." : "Refresh"}
+              </button>
             </div>
-          </div>
-          <div className="mt-2 text-xs text-slate-500">
-            Note: Trading days exclude weekends and US holidays. Dates are approximate.
           </div>
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Refresh button */}
-        <div className="flex justify-end items-center gap-4 mb-6">
-          {hasTodayData && (
-            <span className="text-sm text-green-600 flex items-center gap-1">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              Data current for today
-            </span>
-          )}
-          <button
-            onClick={fetchPrices}
-            disabled={loading || hasTodayData}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              hasTodayData
-                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-            }`}
-            title={hasTodayData ? "Prices already updated for today" : "Refresh prices from database"}
-          >
-            {loading ? "Refreshing..." : hasTodayData ? "Up to Date" : "Refresh Prices"}
-          </button>
-        </div>
+      <main className="max-w-7xl mx-auto px-4 py-6">
+        {/* Market Ticker Strip */}
+        <div className="bg-slate-900 rounded-lg border border-slate-700 mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-slate-700">
+            {/* NYMEX Settlement */}
+            <div className="px-4 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">NYMEX Settle</span>
+                <span className="text-[10px] text-slate-600">{settlementSource || "N/A"}</span>
+              </div>
+              <div className="font-mono text-xl font-bold text-white mt-0.5">
+                ${latestSettlement?.value?.toFixed(2) || "--"}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">{latestSettlement?.date || ""}</div>
+            </div>
 
-        {/* Price Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-          {/* WTI Index (canonical reference price) */}
-          <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl shadow-sm p-6 text-white">
-            <div className="text-sm text-amber-100 mb-1">WTI Index</div>
-            <div className="text-3xl font-bold">
-              ${latestWTI?.value?.toFixed(2) || "--"}
+            {/* WTI Spot */}
+            <div className="px-4 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">WTI Spot</span>
+                <span className="text-[10px] text-slate-600">{spotSource || "N/A"}</span>
+              </div>
+              <div className="flex items-baseline gap-2 mt-0.5">
+                <span className="font-mono text-xl font-bold text-white">
+                  ${latestWTI?.value?.toFixed(2) || "--"}
+                </span>
+                {wtiChange !== 0 && (
+                  <span className={`font-mono text-xs font-medium ${wtiChange >= 0 ? "text-green-400" : "text-red-400"}`}>
+                    {wtiChange >= 0 ? "+" : ""}{wtiChange.toFixed(2)} ({wtiChangePct.toFixed(1)}%)
+                    <ChangeArrow value={wtiChange} />
+                  </span>
+                )}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">{latestWTI?.date || ""}</div>
             </div>
-            {(() => {
-              const wtiData = (prices?.eia?.length || 0) > 0 ? prices?.eia : prices?.fred;
-              const prev = wtiData?.filter((p) => p.value !== null)?.[1];
-              if (latestWTI?.value && prev?.value) {
-                const change = latestWTI.value - prev.value;
-                const changePct = (change / prev.value) * 100;
-                return (
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className={`text-sm font-medium ${change >= 0 ? "text-green-200" : "text-red-200"}`}>
-                      {change >= 0 ? "+" : ""}{change.toFixed(2)} ({changePct.toFixed(2)}%)
-                    </span>
-                    <svg className={`w-4 h-4 ${change >= 0 ? "text-green-200" : "text-red-200 rotate-180"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                    </svg>
-                  </div>
-                );
-              }
-              return null;
-            })()}
-            <div className="text-xs text-amber-200 mt-1">
-              {spotSource || "N/A"} | {latestWTI?.date || "N/A"}
-            </div>
-          </div>
 
-          {/* WTI Spot (EIA or FRED fallback) */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
-            <div className="text-sm text-slate-500 mb-1">WTI Cushing Spot</div>
-            <div className="text-3xl font-bold text-slate-800">
-              ${latestWTI?.value?.toFixed(2) || "--"}
+            {/* WTI Futures */}
+            <div className="px-4 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">WTI Futures CL</span>
+                <span className="text-[10px] text-slate-600">NYMEX</span>
+              </div>
+              <div className="font-mono text-xl font-bold text-white mt-0.5">
+                ${latestFutures?.value?.toFixed(2) || "--"}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">{latestFutures?.date || ""}</div>
             </div>
-            <div className="text-xs text-slate-400 mt-2">
-              {spotSource || "N/A"} | {latestWTI?.date || "N/A"}
-            </div>
-          </div>
 
-          {/* WTI Futures (Yahoo) */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
-            <div className="text-sm text-slate-500 mb-1">WTI Futures (CL)</div>
-            <div className="text-3xl font-bold text-slate-800">
-              ${latestFutures?.value?.toFixed(2) || "--"}
-            </div>
-            <div className="text-xs text-slate-400 mt-2">
-              NYMEX | {latestFutures?.date || "N/A"}
-            </div>
-          </div>
-
-          {/* WTI Midland Differential */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
-            <div className="text-sm text-slate-500 mb-1">
-              WTI Midland Diff (vs Cushing)
-            </div>
-            <div className="text-3xl font-bold text-green-600">
-              +${latestMidlandDiff?.value?.toFixed(2) || "--"}
-            </div>
-            <div className="text-xs text-slate-400 mt-2">
-              CME WTT | {latestMidlandDiff?.date || "N/A"}
-            </div>
-          </div>
-
-          {/* Estimated Price */}
-          <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl shadow-sm p-6 text-white">
-            <div className="text-sm text-blue-100 mb-1">Estimated Net Price</div>
-            <div className="text-3xl font-bold">
-              ${estimatedPrice.toFixed(2)}
-            </div>
-            <div className="text-xs text-blue-200 mt-2">
-              NYMEX + Midland Diff - Transport
+            {/* Midland Diff */}
+            <div className="px-4 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Midland Diff</span>
+                <span className="text-[10px] text-slate-600">CME WTT</span>
+              </div>
+              <div className="font-mono text-xl font-bold text-white mt-0.5">
+                {latestMidlandDiff?.value !== null && latestMidlandDiff?.value !== undefined
+                  ? `${latestMidlandDiff.value >= 0 ? "+" : ""}$${latestMidlandDiff.value.toFixed(2)}`
+                  : "--"}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">{latestMidlandDiff?.date || ""}</div>
             </div>
           </div>
         </div>
 
-        {/* CMA Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">
-              Calendar Month Average (CMA)
-            </h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center py-2 border-b border-slate-100">
-                <span className="text-slate-600">NYMEX Settlement CMA</span>
-                <span className="font-semibold text-amber-700">
-                  ${nymexCMA || "--"}
-                </span>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-slate-100">
-                <span className="text-slate-600">Spot CMA ({spotSource || "N/A"})</span>
-                <span className="font-semibold text-slate-800">
-                  ${spotCMA || "--"}
-                </span>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-slate-100">
-                <span className="text-slate-600">Futures CMA (Yahoo)</span>
-                <span className="font-semibold text-slate-800">
-                  ${futuresCMA || "--"}
-                </span>
-              </div>
-              <div className="flex justify-between items-center py-2">
-                <span className="text-slate-600">Trading Days</span>
-                <span className="font-semibold text-slate-800">
-                  {nymexData?.filter((p) => p.value !== null).length || spotData?.filter((p) => p.value !== null).length || 0}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Price Calculator */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">
-              Price Calculator
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm text-slate-600">
-                  Transportation Differential ($/BBL)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={transportDiff}
-                  onChange={(e) => setTransportDiff(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-slate-800"
-                />
-              </div>
-              <div className="bg-slate-50 rounded-lg p-4">
-                <div className="text-sm text-slate-500 mb-2">Pricing Formula:</div>
-                <div className="font-mono text-sm text-slate-700">
-                  <div>NYMEX CMA TD: <span className="text-amber-700">${nymexCMA || futuresCMA || "--"}</span></div>
-                  <div>+ Midland Diff: ${latestMidlandDiff?.value?.toFixed(2) || "--"}</div>
-                  <div>- Transport: ${transport.toFixed(2)}</div>
-                  <div className="border-t border-slate-300 mt-2 pt-2 font-bold">
-                    = Net Price: ${(parseFloat(nymexCMA || futuresCMA || "0") + midlandDiff - transport).toFixed(2)}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Argus MTD Pricing Summary */}
+        {/* Argus Pricing Panel */}
         {argusPricing && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-slate-800">
-                Argus MTD Pricing — {formatContractMonth(argusPricing.contract_month)}
-              </h3>
+          <div className="bg-slate-900 rounded-lg border border-slate-700 mb-6">
+            {/* Panel header */}
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-700">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">Argus ACR</span>
+                <span className="text-slate-500 text-xs">|</span>
+                <span className="text-white text-sm font-semibold">
+                  {formatContractMonth(argusPricing.contract_month)} Delivery
+                </span>
+                <span className="text-slate-500 text-xs">|</span>
+                <span className="text-slate-400 text-xs">
+                  as of {argusPricing.report_date ? new Date(argusPricing.report_date.split("T")[0] + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "N/A"}
+                </span>
+              </div>
               <Link
                 href="/argus-pricing"
-                className="text-sm text-blue-600 hover:text-blue-700"
+                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
               >
-                View Details →
+                Detail View &rarr;
               </Link>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl p-4 border border-amber-200">
-                <div className="text-xs text-amber-600 mb-1">NYMEX CMA TD</div>
-                <div className="text-2xl font-bold text-amber-800">
-                  ${argusPricing.nymex_cma_td?.toFixed(2) ?? "--"}
+
+            {/* Two-column pricing */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-700">
+              {/* WTI Pricing (5 of 6 leases) */}
+              <div className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">WTI Pricing</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-medium">5 Leases</span>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-400">NYMEX CMA TD</span>
+                    <span className="font-mono text-sm text-amber-400 font-medium">
+                      ${argusPricing.nymex_cma_td?.toFixed(2) ?? "--"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-400">CMA Diff MTD</span>
+                    <span className="font-mono text-sm text-white">
+                      {formatDiffSigned(argusPricing.cma_diff_mtd)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-400">Midland Diff MTD</span>
+                    <span className="font-mono text-sm text-green-400">
+                      {formatDiffSigned(argusPricing.midland_diff_mtd)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-400">Lease Diff</span>
+                    <span className="font-mono text-sm text-red-400">
+                      -${LEASE_DIFF_WTI.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="border-t border-slate-700 pt-1.5 flex items-center justify-between">
+                    <span className="text-xs text-slate-300 font-medium">Est. Net Price</span>
+                    <span className="font-mono text-lg text-blue-400 font-bold">
+                      ${wtiEstNet !== null ? wtiEstNet.toFixed(2) : "--"}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <div className="bg-white rounded-xl p-4 border border-slate-200">
-                <div className="text-xs text-slate-500 mb-1">CMA Diff MTD</div>
-                <div className="text-2xl font-bold text-slate-800">
-                  {argusPricing.cma_diff_mtd !== null
-                    ? `${argusPricing.cma_diff_mtd >= 0 ? "+" : ""}${argusPricing.cma_diff_mtd.toFixed(4)}`
-                    : "--"}
+
+              {/* WTL Midland Pricing (GREEN WAVE) */}
+              <div className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">WTL Midland</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-medium">GREEN WAVE</span>
                 </div>
-              </div>
-              <div className="bg-white rounded-xl p-4 border border-slate-200">
-                <div className="text-xs text-slate-500 mb-1">Midland Diff MTD</div>
-                <div className="text-2xl font-bold text-green-600">
-                  {argusPricing.midland_diff_mtd !== null
-                    ? `${argusPricing.midland_diff_mtd >= 0 ? "+" : ""}${argusPricing.midland_diff_mtd.toFixed(4)}`
-                    : "--"}
-                </div>
-              </div>
-              <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-4 border border-emerald-200">
-                <div className="text-xs text-emerald-600 mb-1">WTL Midland</div>
-                <div className="text-2xl font-bold text-emerald-800">
-                  ${argusPricing.wtl_midland_wtd_avg?.toFixed(2) ?? "--"}
-                </div>
-                <div className="text-xs text-emerald-500 mt-1">
-                  Weighted avg flat price
-                </div>
-              </div>
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
-                <div className="text-xs text-blue-600 mb-1">Argus Est. Net</div>
-                <div className="text-2xl font-bold text-blue-800">
-                  ${argusPricing.est_net_mtd !== null
-                    ? (argusPricing.est_net_mtd - transport).toFixed(2)
-                    : "--"}
-                </div>
-                <div className="text-xs text-blue-500 mt-1">
-                  less ${transport.toFixed(2)} transport
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-400">WTL Midland Wtd Avg</span>
+                    <span className="font-mono text-sm text-emerald-400 font-medium">
+                      ${argusPricing.wtl_midland_wtd_avg?.toFixed(2) ?? "--"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-400">Lease Diff</span>
+                    <span className="font-mono text-sm text-red-400">
+                      -${LEASE_DIFF_WTL.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="border-t border-slate-700 pt-1.5 flex items-center justify-between">
+                    <span className="text-xs text-slate-300 font-medium">Est. Net Price</span>
+                    <span className="font-mono text-lg text-blue-400 font-bold">
+                      ${wtlEstNet !== null ? wtlEstNet.toFixed(2) : "--"}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-600 mt-2 pt-2 border-t border-slate-800">
+                    No oil hauled from this lease yet
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* 30-Day WTI Price Trend Chart */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-slate-200 mb-8">
-          <h3 className="text-lg font-semibold text-slate-800 mb-4">
-            30-Day WTI Spot Price Trend
-          </h3>
-          {(() => {
-            // Get valid spot prices (EIA or FRED fallback) and reverse for chronological order
-            const validPrices = (spotData || [])
-              .filter((p) => p.value !== null)
-              .slice(0, 30)
-              .reverse();
+        {/* 30-Day Chart */}
+        <div className="bg-slate-900 rounded-lg border border-slate-700 mb-6">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-700">
+            <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">30-Day WTI Spot</span>
+            <span className="text-[10px] text-slate-500">{spotSource || "N/A"}</span>
+          </div>
+          <div className="p-4">
+            {(() => {
+              const validPrices = (spotData || [])
+                .filter((p) => p.value !== null)
+                .slice(0, 30)
+                .reverse();
 
-            if (validPrices.length < 2) {
+              if (validPrices.length < 2) {
+                return (
+                  <div className="h-40 flex items-center justify-center text-slate-500 text-sm">
+                    Not enough data to display chart
+                  </div>
+                );
+              }
+
+              const priceValues = validPrices.map((p) => p.value as number);
+              const minPrice = Math.min(...priceValues);
+              const maxPrice = Math.max(...priceValues);
+              const priceRange = maxPrice - minPrice || 1;
+              const paddedMin = minPrice - priceRange * 0.1;
+              const paddedMax = maxPrice + priceRange * 0.1;
+              const paddedRange = paddedMax - paddedMin;
+
+              const chartWidth = 800;
+              const chartHeight = 180;
+              const paddingX = 45;
+              const paddingY = 15;
+              const graphWidth = chartWidth - paddingX * 2;
+              const graphHeight = chartHeight - paddingY * 2;
+
+              const points = validPrices.map((p, i) => {
+                const x = paddingX + (i / (validPrices.length - 1)) * graphWidth;
+                const y = paddingY + graphHeight - ((p.value as number - paddedMin) / paddedRange) * graphHeight;
+                return { x, y, value: p.value, date: p.date };
+              });
+
+              const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+              const areaPath = `${linePath} L ${points[points.length - 1].x} ${paddingY + graphHeight} L ${paddingX} ${paddingY + graphHeight} Z`;
+              const midPrice = (minPrice + maxPrice) / 2;
+              const lastPrice = priceValues[priceValues.length - 1];
+              const firstPrice = priceValues[0];
+              const trendUp = lastPrice >= firstPrice;
+
               return (
-                <div className="h-48 flex items-center justify-center text-slate-400">
-                  Not enough data to display chart
-                </div>
-              );
-            }
-
-            const priceValues = validPrices.map((p) => p.value as number);
-            const minPrice = Math.min(...priceValues);
-            const maxPrice = Math.max(...priceValues);
-            const priceRange = maxPrice - minPrice || 1;
-
-            // Add some padding to the price range for better visualization
-            const paddedMin = minPrice - priceRange * 0.1;
-            const paddedMax = maxPrice + priceRange * 0.1;
-            const paddedRange = paddedMax - paddedMin;
-
-            // Chart dimensions
-            const chartWidth = 800;
-            const chartHeight = 200;
-            const paddingX = 50;
-            const paddingY = 20;
-            const graphWidth = chartWidth - paddingX * 2;
-            const graphHeight = chartHeight - paddingY * 2;
-
-            // Calculate points
-            const points = validPrices.map((p, i) => {
-              const x = paddingX + (i / (validPrices.length - 1)) * graphWidth;
-              const y = paddingY + graphHeight - ((p.value as number - paddedMin) / paddedRange) * graphHeight;
-              return { x, y, value: p.value, date: p.date };
-            });
-
-            // Create SVG path for line
-            const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-
-            // Create area path (fill under line)
-            const areaPath = `${linePath} L ${points[points.length - 1].x} ${paddingY + graphHeight} L ${paddingX} ${paddingY + graphHeight} Z`;
-
-            // Calculate mid price for reference line
-            const midPrice = (minPrice + maxPrice) / 2;
-
-            return (
-              <div className="relative">
-                <svg
-                  viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-                  className="w-full h-48 md:h-56"
-                  preserveAspectRatio="xMidYMid meet"
-                >
-                  {/* Gradient for area fill */}
-                  <defs>
-                    <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
-                      <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.05" />
-                    </linearGradient>
-                  </defs>
-
-                  {/* Background grid lines */}
-                  {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-                    const y = paddingY + graphHeight * (1 - ratio);
-                    return (
-                      <line
-                        key={ratio}
-                        x1={paddingX}
-                        y1={y}
-                        x2={chartWidth - paddingX}
-                        y2={y}
-                        stroke="#e2e8f0"
-                        strokeWidth="1"
-                        strokeDasharray={ratio === 0.5 ? "none" : "4,4"}
-                      />
-                    );
-                  })}
-
-                  {/* Area fill */}
-                  <path d={areaPath} fill="url(#areaGradient)" />
-
-                  {/* Line */}
-                  <path
-                    d={linePath}
-                    fill="none"
-                    stroke="#3b82f6"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-
-                  {/* Data points - show fewer for cleaner look */}
-                  {points.filter((_, i) => i === 0 || i === points.length - 1 || i % 5 === 0).map((p, i) => (
-                    <circle
-                      key={i}
-                      cx={p.x}
-                      cy={p.y}
-                      r="4"
-                      fill="#3b82f6"
-                      stroke="#ffffff"
-                      strokeWidth="2"
-                    />
-                  ))}
-
-                  {/* Max price marker */}
-                  {(() => {
-                    const maxPoint = points.reduce((max, p) => (p.value as number) > (max.value as number) ? p : max, points[0]);
-                    return (
-                      <g>
-                        <circle cx={maxPoint.x} cy={maxPoint.y} r="5" fill="#10b981" stroke="#ffffff" strokeWidth="2" />
-                        <text x={maxPoint.x} y={maxPoint.y - 10} textAnchor="middle" fontSize="10" fill="#10b981" fontWeight="600">
-                          ${(maxPoint.value as number).toFixed(2)}
-                        </text>
-                      </g>
-                    );
-                  })()}
-
-                  {/* Min price marker */}
-                  {(() => {
-                    const minPoint = points.reduce((min, p) => (p.value as number) < (min.value as number) ? p : min, points[0]);
-                    return (
-                      <g>
-                        <circle cx={minPoint.x} cy={minPoint.y} r="5" fill="#ef4444" stroke="#ffffff" strokeWidth="2" />
-                        <text x={minPoint.x} y={minPoint.y + 16} textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="600">
-                          ${(minPoint.value as number).toFixed(2)}
-                        </text>
-                      </g>
-                    );
-                  })()}
-
-                  {/* Y-axis labels */}
-                  <text
-                    x={paddingX - 8}
-                    y={paddingY + graphHeight + 4}
-                    textAnchor="end"
-                    fontSize="10"
-                    fill="#64748b"
+                <div className="relative">
+                  <svg
+                    viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                    className="w-full h-40 md:h-48"
+                    preserveAspectRatio="xMidYMid meet"
                   >
-                    ${paddedMin.toFixed(0)}
-                  </text>
-                  <text
-                    x={paddingX - 8}
-                    y={paddingY + 4}
-                    textAnchor="end"
-                    fontSize="10"
-                    fill="#64748b"
-                  >
-                    ${paddedMax.toFixed(0)}
-                  </text>
-                  <text
-                    x={paddingX - 8}
-                    y={paddingY + graphHeight / 2 + 4}
-                    textAnchor="end"
-                    fontSize="10"
-                    fill="#64748b"
-                  >
-                    ${midPrice.toFixed(0)}
-                  </text>
+                    <defs>
+                      <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={trendUp ? "#22c55e" : "#ef4444"} stopOpacity="0.15" />
+                        <stop offset="100%" stopColor={trendUp ? "#22c55e" : "#ef4444"} stopOpacity="0.02" />
+                      </linearGradient>
+                    </defs>
 
-                  {/* X-axis labels - show dates at intervals */}
-                  {(() => {
-                    // Format date to short format (MM/DD)
-                    const formatShortDate = (dateStr: string) => {
-                      const date = new Date(dateStr);
-                      return `${date.getMonth() + 1}/${date.getDate()}`;
-                    };
-
-                    // Show 5 labels evenly distributed
-                    const labelIndices = [0, Math.floor(validPrices.length * 0.25), Math.floor(validPrices.length * 0.5), Math.floor(validPrices.length * 0.75), validPrices.length - 1];
-
-                    return labelIndices.map((idx, i) => {
-                      if (idx >= validPrices.length || !validPrices[idx]) return null;
-                      const p = points[idx];
+                    {/* Grid lines */}
+                    {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+                      const y = paddingY + graphHeight * (1 - ratio);
                       return (
-                        <text
-                          key={i}
-                          x={p.x}
-                          y={chartHeight - 2}
-                          textAnchor={i === 0 ? "start" : i === labelIndices.length - 1 ? "end" : "middle"}
-                          fontSize="10"
-                          fill="#94a3b8"
-                        >
-                          {formatShortDate(validPrices[idx].date)}
+                        <line key={ratio} x1={paddingX} y1={y} x2={chartWidth - paddingX} y2={y} stroke="#1e293b" strokeWidth="1" />
+                      );
+                    })}
+
+                    <path d={areaPath} fill="url(#areaGrad)" />
+                    <path d={linePath} fill="none" stroke={trendUp ? "#22c55e" : "#ef4444"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+
+                    {/* End point */}
+                    <circle cx={points[points.length - 1].x} cy={points[points.length - 1].y} r="3.5" fill={trendUp ? "#22c55e" : "#ef4444"} stroke="#0f172a" strokeWidth="2" />
+
+                    {/* Y-axis labels */}
+                    {[paddedMin, midPrice, paddedMax].map((price, i) => {
+                      const y = paddingY + graphHeight - ((price - paddedMin) / paddedRange) * graphHeight;
+                      return (
+                        <text key={i} x={paddingX - 6} y={y + 3} textAnchor="end" fontSize="9" fill="#475569" fontFamily="monospace">
+                          ${price.toFixed(0)}
                         </text>
                       );
-                    });
-                  })()}
-                </svg>
+                    })}
 
-                {/* Legend */}
-                <div className="flex items-center justify-between mt-3 text-sm">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                      <span className="text-slate-600">WTI Spot ({spotSource || "N/A"})</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                      <span className="text-slate-600">High</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                      <span className="text-slate-600">Low</span>
-                    </div>
-                  </div>
-                  <div className="text-slate-400">
-                    {validPrices.length} trading days | Range: ${(maxPrice - minPrice).toFixed(2)}
+                    {/* X-axis labels */}
+                    {[0, Math.floor(validPrices.length * 0.5), validPrices.length - 1].map((idx) => {
+                      if (!validPrices[idx]) return null;
+                      const p = points[idx];
+                      const d = new Date(validPrices[idx].date);
+                      return (
+                        <text key={idx} x={p.x} y={chartHeight - 1} textAnchor="middle" fontSize="9" fill="#475569" fontFamily="monospace">
+                          {`${d.getMonth() + 1}/${d.getDate()}`}
+                        </text>
+                      );
+                    })}
+                  </svg>
+
+                  {/* Chart footer stats */}
+                  <div className="flex items-center justify-between mt-2 text-[10px] text-slate-500 font-mono">
+                    <span>{validPrices.length} days</span>
+                    <span>Low ${minPrice.toFixed(2)}</span>
+                    <span>High ${maxPrice.toFixed(2)}</span>
+                    <span>Range ${(maxPrice - minPrice).toFixed(2)}</span>
+                    <span className={trendUp ? "text-green-500" : "text-red-500"}>
+                      {trendUp ? "+" : ""}{(lastPrice - firstPrice).toFixed(2)} ({((lastPrice - firstPrice) / firstPrice * 100).toFixed(1)}%)
+                    </span>
                   </div>
                 </div>
-              </div>
-            );
-          })()}
+              );
+            })()}
+          </div>
         </div>
 
-        {/* Last Updated */}
+        {/* Footer */}
         {prices?.fetchedAt && (
-          <div className="mt-8 text-center text-sm text-slate-500">
-            <p>Last updated: {new Date(prices.fetchedAt).toLocaleString()}</p>
+          <div className="text-center text-[10px] text-slate-600 font-mono">
+            Last updated: {new Date(prices.fetchedAt).toLocaleString()}
           </div>
         )}
       </main>
