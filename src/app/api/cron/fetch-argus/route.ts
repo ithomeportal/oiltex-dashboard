@@ -9,8 +9,13 @@ export const maxDuration = 60;
 
 const utapi = new UTApi();
 
-function extractReportDate(receivedDate: string): string {
-  // The report date is typically the business day the email was sent
+function extractReportDate(filename: string, receivedDate: string): string {
+  // Parse date from filename first (e.g. "20260303acr.pdf" → "2026-03-03")
+  const match = filename.match(/^(\d{4})(\d{2})(\d{2})/);
+  if (match) {
+    return `${match[1]}-${match[2]}-${match[3]}`;
+  }
+  // Fallback to email received date
   const date = new Date(receivedDate);
   return date.toISOString().split("T")[0];
 }
@@ -32,7 +37,7 @@ export async function GET(request: Request) {
     const errors: string[] = [];
 
     for (const attachment of attachments) {
-      const reportDate = extractReportDate(attachment.receivedDate);
+      const reportDate = extractReportDate(attachment.filename, attachment.receivedDate);
 
       // Check if we already have this report
       const existing = await getArgusReportByDate(reportDate);
