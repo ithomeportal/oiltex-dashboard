@@ -18,6 +18,7 @@ interface LivePrices {
   nymex: PriceData[];
   chartExport: PriceData[];
   investingCom: PriceData[];
+  argusMidland: PriceData[];
   fetchedAt: string;
 }
 
@@ -75,6 +76,7 @@ export default function HistoryPage() {
     prices?.nymex?.forEach((p) => dateSet.add(normalizeDate(p.date)));
     prices?.chartExport?.forEach((p) => dateSet.add(normalizeDate(p.date)));
     prices?.investingCom?.forEach((p) => dateSet.add(normalizeDate(p.date)));
+    prices?.argusMidland?.forEach((p) => dateSet.add(normalizeDate(p.date)));
     return Array.from(dateSet).sort((a, b) => b.localeCompare(a));
   };
 
@@ -131,6 +133,7 @@ export default function HistoryPage() {
   const nymexMap = buildPriceMap(prices?.nymex);
   const chartExportMap = buildPriceMap(prices?.chartExport);
   const investingComMap = buildPriceMap(prices?.investingCom);
+  const argusMidlandMap = buildPriceMap(prices?.argusMidland);
 
   // Check if a date is a weekend
   const isWeekend = (dateStr: string) => {
@@ -230,16 +233,23 @@ export default function HistoryPage() {
                   {dates.slice(0, daysToShow).map((date, i) => {
                     const weekend = isWeekend(date);
 
-                    // WTI Index: prefer EIA, fallback to FRED
+                    // WTI Index: prefer EIA, fallback to FRED, then NYMEX settle
                     const getWtiIndex = () => {
                       const eiaVal = eiaMap.get(date);
                       if (eiaVal !== undefined && eiaVal !== null) return { value: eiaVal, isFillForward: false };
                       const fredVal = fredMap.get(date);
                       if (fredVal !== undefined && fredVal !== null) return { value: fredVal, isFillForward: false };
+                      // Fallback to NYMEX settlement (same underlying WTI Cushing price)
+                      const nymexVal = nymexMap.get(date);
+                      if (nymexVal !== undefined && nymexVal !== null) return { value: nymexVal, isFillForward: false };
+                      const chartVal = chartExportMap.get(date);
+                      if (chartVal !== undefined && chartVal !== null) return { value: chartVal, isFillForward: false };
                       if (viewMode === "calendar") {
                         const ffEia = getPriceWithFillForward(date, eiaMap, dates);
                         if (ffEia.value !== null) return ffEia;
-                        return getPriceWithFillForward(date, fredMap, dates);
+                        const ffFred = getPriceWithFillForward(date, fredMap, dates);
+                        if (ffFred.value !== null) return ffFred;
+                        return getPriceWithFillForward(date, nymexMap, dates);
                       }
                       return { value: null, isFillForward: false };
                     };
@@ -249,12 +259,34 @@ export default function HistoryPage() {
                     const eiaData = viewMode === "calendar"
                       ? getPriceWithFillForward(date, eiaMap, dates)
                       : { value: eiaMap.get(date) ?? null, isFillForward: false };
-                    const futuresData = viewMode === "calendar"
-                      ? getPriceWithFillForward(date, futuresMap, dates)
-                      : { value: futuresMap.get(date) ?? null, isFillForward: false };
-                    const midlandData = viewMode === "calendar"
-                      ? getPriceWithFillForward(date, midlandMap, dates)
-                      : { value: midlandMap.get(date) ?? null, isFillForward: false };
+                    // WTI Futures: prefer Yahoo CL, fallback to NYMEX settle
+                    const getFuturesData = () => {
+                      const yahooVal = futuresMap.get(date);
+                      if (yahooVal !== undefined && yahooVal !== null) return { value: yahooVal, isFillForward: false };
+                      const nymexVal = nymexMap.get(date);
+                      if (nymexVal !== undefined && nymexVal !== null) return { value: nymexVal, isFillForward: false };
+                      if (viewMode === "calendar") {
+                        const ff = getPriceWithFillForward(date, futuresMap, dates);
+                        if (ff.value !== null) return ff;
+                        return getPriceWithFillForward(date, nymexMap, dates);
+                      }
+                      return { value: null, isFillForward: false };
+                    };
+                    const futuresData = getFuturesData();
+                    // Midland Diff: prefer Yahoo WTT, fallback to Argus WTI Midland
+                    const getMidlandData = () => {
+                      const yahooVal = midlandMap.get(date);
+                      if (yahooVal !== undefined && yahooVal !== null) return { value: yahooVal, isFillForward: false };
+                      const argusVal = argusMidlandMap.get(date);
+                      if (argusVal !== undefined && argusVal !== null) return { value: argusVal, isFillForward: false };
+                      if (viewMode === "calendar") {
+                        const ff = getPriceWithFillForward(date, midlandMap, dates);
+                        if (ff.value !== null) return ff;
+                        return getPriceWithFillForward(date, argusMidlandMap, dates);
+                      }
+                      return { value: null, isFillForward: false };
+                    };
+                    const midlandData = getMidlandData();
 
                     // Get NYMEX settlement - prefer nymex, fallback to chartExport, then investingCom
                     const getNymexPrice = () => {
@@ -344,11 +376,11 @@ export default function HistoryPage() {
           <div className="mt-6 p-4 bg-slate-50 rounded-lg">
             <h3 className="text-sm font-medium text-slate-700 mb-2">Data Sources</h3>
             <ul className="text-xs text-slate-500 space-y-1">
-              <li><strong>WTI Index</strong> - Consolidated reference price (EIA preferred, FRED fallback)</li>
+              <li><strong>WTI Index</strong> - Consolidated reference price (EIA → FRED → NYMEX Settle fallback)</li>
               <li><strong>WTI Spot (EIA)</strong> - U.S. Energy Information Administration RWTC series</li>
-              <li><strong>NYMEX Settle</strong> - NYMEX WTI settlement price (historical data from imported files)</li>
-              <li><strong>WTI Futures (CL)</strong> - CME NYMEX Light Sweet Crude Oil front-month contract (Yahoo)</li>
-              <li><strong>Midland Diff</strong> - CME WTI Midland vs WTI differential (WTT)</li>
+              <li><strong>NYMEX Settle</strong> - NYMEX WTI settlement price (Argus historical + imported files)</li>
+              <li><strong>WTI Futures (CL)</strong> - CME NYMEX front-month (Yahoo → NYMEX Settle fallback)</li>
+              <li><strong>Midland Diff</strong> - WTI Midland vs WTI differential (Yahoo WTT → Argus fallback)</li>
               <li><strong>Est. Net Price</strong> - (NYMEX Settle or Futures) + Midland Diff - $2.50 Transport</li>
             </ul>
             {viewMode === "calendar" && (
