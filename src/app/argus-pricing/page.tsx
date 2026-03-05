@@ -71,6 +71,15 @@ function formatDiff(value: unknown): string {
   return `${sign}${n.toFixed(4)}`;
 }
 
+const LEASE_DIFFERENTIALS = [
+  { name: "BELLATRIX 28 FEDERAL", county: "Eddy County, NM", diff: 2.18, base: "WTI" as const },
+  { name: "BFDU 52H/56H", county: "Eddy County, NM", diff: 2.26, base: "WTI" as const },
+  { name: "BFDU 61H", county: "Eddy County, NM", diff: 2.26, base: "WTI" as const },
+  { name: "GREEN WAVE 20 CTB 1", county: "Lea County, NM", diff: 2.26, base: "WTL" as const },
+  { name: "LAGUNA SALADO 22 FEDERAL", county: "Eddy County, NM", diff: 2.26, base: "WTI" as const },
+  { name: "SAND 7 FED OIL", county: "Eddy County, NM", diff: 2.26, base: "WTI" as const },
+] as const;
+
 function getDefaultContractMonth(): string {
   // Default to current month; will be overridden once we fetch available months
   const now = new Date();
@@ -81,10 +90,13 @@ export default function ArgusPricingPage() {
   const [data, setData] = useState<PricingApiResponse["data"] | null>(null);
   const [meta, setMeta] = useState<PricingApiResponse["meta"] | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(getDefaultContractMonth());
-  const [transportCost, setTransportCost] = useState("2.50");
+  const [selectedLease, setSelectedLease] = useState("BFDU 52H/56H");
+  const [transportCost, setTransportCost] = useState("2.26");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const activeLease = LEASE_DIFFERENTIALS.find((l) => l.name === selectedLease) || LEASE_DIFFERENTIALS[1];
 
   const fetchData = useCallback(
     async (month: string, p: number) => {
@@ -123,10 +135,15 @@ export default function ArgusPricingPage() {
 
   const latest = data?.latest;
   const transport = parseFloat(transportCost) || 0;
+  const isWtlLease = activeLease.base === "WTL";
 
+  // For WTI leases: Est Net = CMA TD + CMA Diff + Midland Diff - Lease Diff
+  // For WTL leases: Est Net = WTL Midland Wtd Avg - Lease Diff
   const latestEstNetMtd = toNum(latest?.est_net_mtd);
-  const estNetMtdMinusTransport =
-    latestEstNetMtd !== null ? latestEstNetMtd - transport : null;
+  const latestWtlMidland = toNum(latest?.wtl_midland_wtd_avg);
+  const estNetMtdMinusTransport = isWtlLease
+    ? latestWtlMidland !== null ? latestWtlMidland - transport : null
+    : latestEstNetMtd !== null ? latestEstNetMtd - transport : null;
 
   return (
     <DashboardLayout>
@@ -164,10 +181,31 @@ export default function ArgusPricingPage() {
                 )}
               </select>
             </div>
-            {/* Transport Input */}
+            {/* Lease Selector */}
             <div>
               <label className="text-xs text-slate-400 block mb-1">
-                Transport ($/bbl)
+                Lease
+              </label>
+              <select
+                value={selectedLease}
+                onChange={(e) => {
+                  setSelectedLease(e.target.value);
+                  const lease = LEASE_DIFFERENTIALS.find((l) => l.name === e.target.value);
+                  if (lease) setTransportCost(lease.diff.toFixed(2));
+                }}
+                className="bg-slate-700 text-white border border-slate-600 rounded-lg px-3 py-2 text-sm"
+              >
+                {LEASE_DIFFERENTIALS.map((l) => (
+                  <option key={l.name} value={l.name}>
+                    {l.name} ({l.base})
+                  </option>
+                ))}
+              </select>
+            </div>
+            {/* Lease Diff Override */}
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">
+                Lease Diff ($/bbl)
               </label>
               <input
                 type="number"
@@ -235,7 +273,7 @@ export default function ArgusPricingPage() {
           {/* Argus Est Net Price */}
           <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl shadow-sm p-5 text-white">
             <div className="text-sm text-blue-100 mb-1">
-              Argus Est. Net Price
+              Est. Net — {activeLease.base}
             </div>
             <div className="text-3xl font-bold">
               ${estNetMtdMinusTransport !== null
@@ -243,7 +281,7 @@ export default function ArgusPricingPage() {
                 : "--"}
             </div>
             <div className="text-xs text-blue-200 mt-2">
-              CMA TD + Diffs - ${transport.toFixed(2)} transport
+              {isWtlLease ? "WTL Midland" : "CMA TD + Diffs"} - ${transport.toFixed(2)} lease diff
             </div>
           </div>
         </div>
@@ -252,47 +290,124 @@ export default function ArgusPricingPage() {
         {latest && (
           <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 mb-8">
             <div className="text-sm text-slate-400 mb-2">
-              Pricing Formula (MTD as of{" "}
+              Pricing Formula — {activeLease.name} ({activeLease.base}) as of{" "}
               {latest.report_date
                 ? formatDate(latest.report_date)
                 : "latest"}
-              )
             </div>
             <div className="font-mono text-sm text-slate-300 flex flex-wrap gap-x-4">
-              <span>
-                NYMEX CMA TD:{" "}
-                <span className="text-amber-400">
-                  ${formatPrice(latest.nymex_cma_td)}
-                </span>
-              </span>
-              <span>
-                + CMA Diff:{" "}
-                <span className="text-white">
-                  {formatDiff(latest.cma_diff_mtd)}
-                </span>
-              </span>
-              <span>
-                + Midland Diff:{" "}
-                <span className="text-green-400">
-                  {formatDiff(latest.midland_diff_mtd)}
-                </span>
-              </span>
-              <span>
-                - Transport:{" "}
-                <span className="text-red-400">${transport.toFixed(2)}</span>
-              </span>
-              <span className="font-bold">
-                ={" "}
-                <span className="text-blue-400">
-                  $
-                  {estNetMtdMinusTransport !== null
-                    ? formatPrice(estNetMtdMinusTransport)
-                    : "--"}
-                </span>
-              </span>
+              {isWtlLease ? (
+                <>
+                  <span>
+                    WTL Midland Wtd Avg:{" "}
+                    <span className="text-emerald-400">
+                      ${formatPrice(latest.wtl_midland_wtd_avg)}
+                    </span>
+                  </span>
+                  <span>
+                    - Lease Diff:{" "}
+                    <span className="text-red-400">${transport.toFixed(2)}</span>
+                  </span>
+                  <span className="font-bold">
+                    ={" "}
+                    <span className="text-blue-400">
+                      $
+                      {estNetMtdMinusTransport !== null
+                        ? formatPrice(estNetMtdMinusTransport)
+                        : "--"}
+                    </span>
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span>
+                    NYMEX CMA TD:{" "}
+                    <span className="text-amber-400">
+                      ${formatPrice(latest.nymex_cma_td)}
+                    </span>
+                  </span>
+                  <span>
+                    + CMA Diff:{" "}
+                    <span className="text-white">
+                      {formatDiff(latest.cma_diff_mtd)}
+                    </span>
+                  </span>
+                  <span>
+                    + Midland Diff:{" "}
+                    <span className="text-green-400">
+                      {formatDiff(latest.midland_diff_mtd)}
+                    </span>
+                  </span>
+                  <span>
+                    - Lease Diff:{" "}
+                    <span className="text-red-400">${transport.toFixed(2)}</span>
+                  </span>
+                  <span className="font-bold">
+                    ={" "}
+                    <span className="text-blue-400">
+                      $
+                      {estNetMtdMinusTransport !== null
+                        ? formatPrice(estNetMtdMinusTransport)
+                        : "--"}
+                    </span>
+                  </span>
+                </>
+              )}
             </div>
           </div>
         )}
+
+        {/* Lease Differentials Reference */}
+        <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden mb-8">
+          <div className="px-4 py-3 border-b border-slate-700">
+            <h3 className="text-sm font-medium text-slate-300">Lease Transportation Differentials (Exhibit A)</h3>
+            <p className="text-xs text-slate-500 mt-1">
+              Includes Big Star Crude truck rate (one-way mileage) + $0.25 Marathon unloading + OilTex margin. All plus FSC.
+            </p>
+          </div>
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-700">
+                <th className="text-left px-4 py-2 text-xs font-medium text-slate-400">Location</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-slate-400">County</th>
+                <th className="text-right px-4 py-2 text-xs font-medium text-slate-400">Lease Diff</th>
+                <th className="text-center px-4 py-2 text-xs font-medium text-slate-400">Base Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              {LEASE_DIFFERENTIALS.map((lease) => (
+                <tr
+                  key={lease.name}
+                  className={`border-b border-slate-700/50 transition-colors ${
+                    lease.name === selectedLease
+                      ? "bg-blue-500/10"
+                      : "hover:bg-slate-700/30"
+                  }`}
+                >
+                  <td className="px-4 py-2 text-sm text-white">
+                    {lease.name}
+                    {lease.name === selectedLease && (
+                      <span className="ml-2 text-xs text-blue-400">selected</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-sm text-slate-400">{lease.county}</td>
+                  <td className="px-4 py-2 text-sm text-right text-red-400 font-mono">
+                    -${lease.diff.toFixed(2)}
+                  </td>
+                  <td className="px-4 py-2 text-sm text-center">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                      lease.base === "WTL"
+                        ? "bg-emerald-500/20 text-emerald-400"
+                        : "bg-amber-500/20 text-amber-400"
+                    }`}>
+                      {lease.base}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         {/* Daily Table */}
         <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
@@ -353,16 +468,15 @@ export default function ArgusPricingPage() {
                 </tr>
               ) : (
                 data.rows.map((row) => {
+                  const rowWtlMidland = toNum(row.wtl_midland_wtd_avg);
                   const rowEstNetDailyNum = toNum(row.est_net_daily);
-                  const rowEstNetDaily =
-                    rowEstNetDailyNum !== null
-                      ? rowEstNetDailyNum - transport
-                      : null;
+                  const rowEstNetDaily = isWtlLease
+                    ? rowWtlMidland !== null ? rowWtlMidland - transport : null
+                    : rowEstNetDailyNum !== null ? rowEstNetDailyNum - transport : null;
                   const rowEstNetMtdNum = toNum(row.est_net_mtd);
-                  const rowEstNetMtd =
-                    rowEstNetMtdNum !== null
-                      ? rowEstNetMtdNum - transport
-                      : null;
+                  const rowEstNetMtd = isWtlLease
+                    ? rowWtlMidland !== null ? rowWtlMidland - transport : null
+                    : rowEstNetMtdNum !== null ? rowEstNetMtdNum - transport : null;
 
                   return (
                     <tr

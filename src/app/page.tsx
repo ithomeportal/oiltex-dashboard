@@ -139,7 +139,7 @@ export default function Dashboard() {
   const [prices, setPrices] = useState<LivePrices | null>(null);
   const [argusPricing, setArgusPricing] = useState<ArgusPricingLatest | null>(null);
   const [loading, setLoading] = useState(false);
-  const [transportDiff, setTransportDiff] = useState<string>("2.50");
+  const [transportDiff, setTransportDiff] = useState<string>("2.26");
 
   // Fetch prices (request 60 calendar days to ensure ~30 trading days)
   const fetchPrices = useCallback(async () => {
