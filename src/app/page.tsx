@@ -28,6 +28,13 @@ interface ArgusPricingLatest {
   midland_diff_mtd: number | null;
   est_net_mtd: number | null;
   report_date: string;
+  contract_month: string;
+}
+
+function formatContractMonth(month: string): string {
+  const [year, m] = month.split("-");
+  const names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${names[parseInt(m, 10) - 1]} ${year}`;
 }
 
 interface TradeMonthInfo {
@@ -151,9 +158,13 @@ export default function Dashboard() {
 
   const fetchArgusPricing = useCallback(async () => {
     try {
-      const now = new Date();
-      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-      const res = await fetch(`/api/argus-pricing?month=${currentMonth}`);
+      // First get available months, then fetch the most recent one
+      const initRes = await fetch("/api/argus-pricing?month=_");
+      const initData = await initRes.json();
+      const latestMonth = initData?.data?.months?.[0];
+      if (!latestMonth) return;
+
+      const res = await fetch(`/api/argus-pricing?month=${latestMonth}`);
       const data = await res.json();
       if (data.success && data.data.latest) {
         const raw = data.data.latest;
@@ -163,6 +174,7 @@ export default function Dashboard() {
           midland_diff_mtd: raw.midland_diff_mtd !== null ? parseFloat(raw.midland_diff_mtd) : null,
           est_net_mtd: raw.est_net_mtd !== null ? parseFloat(raw.est_net_mtd) : null,
           report_date: raw.report_date,
+          contract_month: raw.contract_month || latestMonth,
         });
       }
     } catch (err) {
@@ -446,7 +458,7 @@ export default function Dashboard() {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-slate-800">
-                Argus MTD Pricing
+                Argus MTD Pricing — {formatContractMonth(argusPricing.contract_month)}
               </h3>
               <Link
                 href="/argus-pricing"

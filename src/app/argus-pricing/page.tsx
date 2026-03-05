@@ -55,6 +55,12 @@ function formatPrice(value: unknown, decimals: number = 2): string {
   return n.toFixed(decimals);
 }
 
+function formatMonthName(month: string): string {
+  const [year, m] = month.split("-");
+  const names = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  return `${names[parseInt(m, 10) - 1]} ${year}`;
+}
+
 function formatDiff(value: unknown): string {
   const n = toNum(value);
   if (n === null) return "--";
@@ -62,7 +68,8 @@ function formatDiff(value: unknown): string {
   return `${sign}${n.toFixed(4)}`;
 }
 
-function getCurrentContractMonth(): string {
+function getDefaultContractMonth(): string {
+  // Default to current month; will be overridden once we fetch available months
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
@@ -70,7 +77,7 @@ function getCurrentContractMonth(): string {
 export default function ArgusPricingPage() {
   const [data, setData] = useState<PricingApiResponse["data"] | null>(null);
   const [meta, setMeta] = useState<PricingApiResponse["meta"] | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentContractMonth());
+  const [selectedMonth, setSelectedMonth] = useState(getDefaultContractMonth());
   const [transportCost, setTransportCost] = useState("2.50");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -146,11 +153,11 @@ export default function ArgusPricingPage() {
                 {data?.months && data.months.length > 0 ? (
                   data.months.map((m) => (
                     <option key={m} value={m}>
-                      {m}
+                      {formatMonthName(m)}
                     </option>
                   ))
                 ) : (
-                  <option value={selectedMonth}>{selectedMonth}</option>
+                  <option value={selectedMonth}>{formatMonthName(selectedMonth)}</option>
                 )}
               </select>
             </div>
