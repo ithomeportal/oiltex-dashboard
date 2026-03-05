@@ -43,15 +43,23 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function formatPrice(value: number | null | undefined, decimals: number = 2): string {
-  if (value === null || value === undefined) return "--";
-  return value.toFixed(decimals);
+function toNum(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const n = typeof value === "number" ? value : parseFloat(String(value));
+  return isNaN(n) ? null : n;
 }
 
-function formatDiff(value: number | null | undefined): string {
-  if (value === null || value === undefined) return "--";
-  const sign = value >= 0 ? "+" : "";
-  return `${sign}${value.toFixed(4)}`;
+function formatPrice(value: unknown, decimals: number = 2): string {
+  const n = toNum(value);
+  if (n === null) return "--";
+  return n.toFixed(decimals);
+}
+
+function formatDiff(value: unknown): string {
+  const n = toNum(value);
+  if (n === null) return "--";
+  const sign = n >= 0 ? "+" : "";
+  return `${sign}${n.toFixed(4)}`;
 }
 
 function getCurrentContractMonth(): string {
@@ -106,10 +114,9 @@ export default function ArgusPricingPage() {
   const latest = data?.latest;
   const transport = parseFloat(transportCost) || 0;
 
+  const latestEstNetMtd = toNum(latest?.est_net_mtd);
   const estNetMtdMinusTransport =
-    latest?.est_net_mtd !== null && latest?.est_net_mtd !== undefined
-      ? latest.est_net_mtd - transport
-      : null;
+    latestEstNetMtd !== null ? latestEstNetMtd - transport : null;
 
   return (
     <DashboardLayout>
@@ -322,13 +329,15 @@ export default function ArgusPricingPage() {
                 </tr>
               ) : (
                 data.rows.map((row) => {
+                  const rowEstNetDailyNum = toNum(row.est_net_daily);
                   const rowEstNetDaily =
-                    row.est_net_daily !== null
-                      ? row.est_net_daily - transport
+                    rowEstNetDailyNum !== null
+                      ? rowEstNetDailyNum - transport
                       : null;
+                  const rowEstNetMtdNum = toNum(row.est_net_mtd);
                   const rowEstNetMtd =
-                    row.est_net_mtd !== null
-                      ? row.est_net_mtd - transport
+                    rowEstNetMtdNum !== null
+                      ? rowEstNetMtdNum - transport
                       : null;
 
                   return (

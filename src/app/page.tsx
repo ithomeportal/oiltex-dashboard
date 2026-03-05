@@ -156,7 +156,14 @@ export default function Dashboard() {
       const res = await fetch(`/api/argus-pricing?month=${currentMonth}`);
       const data = await res.json();
       if (data.success && data.data.latest) {
-        setArgusPricing(data.data.latest);
+        const raw = data.data.latest;
+        setArgusPricing({
+          nymex_cma_td: raw.nymex_cma_td !== null ? parseFloat(raw.nymex_cma_td) : null,
+          cma_diff_mtd: raw.cma_diff_mtd !== null ? parseFloat(raw.cma_diff_mtd) : null,
+          midland_diff_mtd: raw.midland_diff_mtd !== null ? parseFloat(raw.midland_diff_mtd) : null,
+          est_net_mtd: raw.est_net_mtd !== null ? parseFloat(raw.est_net_mtd) : null,
+          report_date: raw.report_date,
+        });
       }
     } catch (err) {
       console.error("Error fetching Argus pricing:", err);
