@@ -22,7 +22,9 @@ interface Meta {
 }
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr + "T00:00:00");
+  // report_date may come as "2026-03-03" or "2026-03-03T00:00:00.000Z"
+  const dateOnly = dateStr.split("T")[0];
+  const date = new Date(dateOnly + "T00:00:00");
   return date.toLocaleDateString("en-US", {
     weekday: "short",
     year: "numeric",

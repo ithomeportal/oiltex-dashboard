@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/fetch-argus",
-      "schedule": "0 5 * * 2-6"
+      "schedule": "0 5 * * *"
     }
   ],
   "redirects": [
