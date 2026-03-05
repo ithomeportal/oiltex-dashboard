@@ -40,7 +40,9 @@ export async function POST(request: Request) {
       try {
         const pricingData = await extractArgusPricingFromUrl(report.file_url);
         const reportDate =
-          report.report_date.split("T")[0] || report.report_date;
+          typeof report.report_date === "string"
+            ? report.report_date.split("T")[0]
+            : new Date(report.report_date).toISOString().split("T")[0];
 
         await saveArgusPricing(reportDate, pricingData, pricingData as unknown as Record<string, unknown>);
         extracted++;
