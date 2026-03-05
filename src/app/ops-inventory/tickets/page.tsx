@@ -17,6 +17,31 @@ function formatTicketDate(dateStr: string | null): string {
   });
 }
 
+function getMonthRange(year: number, month: number): { from: string; to: string } {
+  const from = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const to = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  return { from, to };
+}
+
+function getMonthButtons(): Array<{ label: string; year: number; month: number; key: string }> {
+  const now = new Date();
+  const buttons: Array<{ label: string; year: number; month: number; key: string }> = [];
+  const names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  // Show 6 months: current + 5 previous
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    buttons.push({
+      label: `${names[d.getMonth()]} ${d.getFullYear()}`,
+      year: d.getFullYear(),
+      month: d.getMonth(),
+      key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+    });
+  }
+  return buttons;
+}
+
 export default function TicketsPage() {
   const [tickets, setTickets] = useState<OilTicket[]>([]);
   const [total, setTotal] = useState(0);
@@ -24,14 +49,31 @@ export default function TicketsPage() {
   const [page, setPage] = useState(1);
   const limit = 50;
 
+  // Default to current month
+  const now = new Date();
+  const defaultRange = getMonthRange(now.getFullYear(), now.getMonth());
+
   // Filters
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(defaultRange.from);
+  const [dateTo, setDateTo] = useState(defaultRange.to);
+  const [activeMonthKey, setActiveMonthKey] = useState(
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  );
   const [shipper, setShipper] = useState("");
   const [operator, setOperator] = useState("");
   const [county, setCounty] = useState("");
   const [state, setState] = useState("");
   const [search, setSearch] = useState("");
+
+  const monthButtons = getMonthButtons();
+
+  const selectMonth = (year: number, month: number, key: string) => {
+    const range = getMonthRange(year, month);
+    setDateFrom(range.from);
+    setDateTo(range.to);
+    setActiveMonthKey(key);
+    setPage(1);
+  };
 
   const fetchTickets = useCallback(async () => {
     setLoading(true);
@@ -76,6 +118,7 @@ export default function TicketsPage() {
   const clearFilters = () => {
     setDateFrom("");
     setDateTo("");
+    setActiveMonthKey("");
     setShipper("");
     setOperator("");
     setCounty("");
@@ -105,6 +148,34 @@ export default function TicketsPage() {
             </button>
           </div>
 
+          {/* Month Quick Filter */}
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider mr-1">Month</span>
+            {monthButtons.map((mb) => (
+              <button
+                key={mb.key}
+                onClick={() => selectMonth(mb.year, mb.month, mb.key)}
+                className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
+                  activeMonthKey === mb.key
+                    ? "bg-blue-600 text-white"
+                    : "bg-white text-slate-600 border border-slate-300 hover:bg-slate-50"
+                }`}
+              >
+                {mb.label}
+              </button>
+            ))}
+            <button
+              onClick={clearFilters}
+              className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
+                activeMonthKey === ""
+                  ? "bg-slate-800 text-white"
+                  : "bg-white text-slate-500 border border-slate-300 hover:bg-slate-50"
+              }`}
+            >
+              All
+            </button>
+          </div>
+
           {/* Filter Bar */}
           <form onSubmit={handleSearch} className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
@@ -113,7 +184,7 @@ export default function TicketsPage() {
                 <input
                   type="date"
                   value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
+                  onChange={(e) => { setDateFrom(e.target.value); setActiveMonthKey(""); }}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
                 />
               </div>
@@ -122,7 +193,7 @@ export default function TicketsPage() {
                 <input
                   type="date"
                   value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
+                  onChange={(e) => { setDateTo(e.target.value); setActiveMonthKey(""); }}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
                 />
               </div>
