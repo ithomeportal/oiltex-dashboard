@@ -114,6 +114,26 @@ export async function initDatabase() {
       );
     `);
 
+    // Create argus_pricing table for storing extracted pricing data from Argus PDFs
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS argus_pricing (
+        id SERIAL PRIMARY KEY,
+        report_date DATE NOT NULL,
+        contract_month VARCHAR(7) NOT NULL,
+        nymex_cma_td DECIMAL(10,4),
+        cma_diff_daily DECIMAL(10,4),
+        cma_diff_mtd DECIMAL(10,4),
+        midland_diff_daily DECIMAL(10,4),
+        midland_diff_mtd DECIMAL(10,4),
+        est_net_daily DECIMAL(10,4),
+        est_net_mtd DECIMAL(10,4),
+        extraction_confidence INTEGER,
+        raw_extraction JSONB,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(report_date, contract_month)
+      );
+    `);
+
     // Initialize OPs Inventory tables
     await initOpsInventoryTables();
 

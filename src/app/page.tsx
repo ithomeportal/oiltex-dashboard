@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import DashboardLayout from "@/components/DashboardLayout";
 
 interface PriceData {
@@ -19,6 +20,14 @@ interface LivePrices {
   chartExport: PriceData[];
   investingCom: PriceData[];
   fetchedAt: string;
+}
+
+interface ArgusPricingLatest {
+  nymex_cma_td: number | null;
+  cma_diff_mtd: number | null;
+  midland_diff_mtd: number | null;
+  est_net_mtd: number | null;
+  report_date: string;
 }
 
 interface TradeMonthInfo {
@@ -120,6 +129,7 @@ function getTradeMonthInfo(): TradeMonthInfo {
 
 export default function Dashboard() {
   const [prices, setPrices] = useState<LivePrices | null>(null);
+  const [argusPricing, setArgusPricing] = useState<ArgusPricingLatest | null>(null);
   const [loading, setLoading] = useState(false);
   const [transportDiff, setTransportDiff] = useState<string>("2.50");
 
@@ -139,9 +149,24 @@ export default function Dashboard() {
     }
   }, []);
 
+  const fetchArgusPricing = useCallback(async () => {
+    try {
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const res = await fetch(`/api/argus-pricing?month=${currentMonth}`);
+      const data = await res.json();
+      if (data.success && data.data.latest) {
+        setArgusPricing(data.data.latest);
+      }
+    } catch (err) {
+      console.error("Error fetching Argus pricing:", err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchPrices();
-  }, [fetchPrices]);
+    fetchArgusPricing();
+  }, [fetchPrices, fetchArgusPricing]);
 
   // Get latest values (with fallbacks)
   const latestEIA = prices?.eia?.find((p) => p.value !== null);
@@ -408,6 +433,58 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Argus MTD Pricing Summary */}
+        {argusPricing && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-800">
+                Argus MTD Pricing
+              </h3>
+              <Link
+                href="/argus-pricing"
+                className="text-sm text-blue-600 hover:text-blue-700"
+              >
+                View Details →
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl p-4 border border-amber-200">
+                <div className="text-xs text-amber-600 mb-1">NYMEX CMA TD</div>
+                <div className="text-2xl font-bold text-amber-800">
+                  ${argusPricing.nymex_cma_td?.toFixed(2) ?? "--"}
+                </div>
+              </div>
+              <div className="bg-white rounded-xl p-4 border border-slate-200">
+                <div className="text-xs text-slate-500 mb-1">CMA Diff MTD</div>
+                <div className="text-2xl font-bold text-slate-800">
+                  {argusPricing.cma_diff_mtd !== null
+                    ? `${argusPricing.cma_diff_mtd >= 0 ? "+" : ""}${argusPricing.cma_diff_mtd.toFixed(4)}`
+                    : "--"}
+                </div>
+              </div>
+              <div className="bg-white rounded-xl p-4 border border-slate-200">
+                <div className="text-xs text-slate-500 mb-1">Midland Diff MTD</div>
+                <div className="text-2xl font-bold text-green-600">
+                  {argusPricing.midland_diff_mtd !== null
+                    ? `${argusPricing.midland_diff_mtd >= 0 ? "+" : ""}${argusPricing.midland_diff_mtd.toFixed(4)}`
+                    : "--"}
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+                <div className="text-xs text-blue-600 mb-1">Argus Est. Net</div>
+                <div className="text-2xl font-bold text-blue-800">
+                  ${argusPricing.est_net_mtd !== null
+                    ? (argusPricing.est_net_mtd - transport).toFixed(2)
+                    : "--"}
+                </div>
+                <div className="text-xs text-blue-500 mt-1">
+                  less ${transport.toFixed(2)} transport
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 30-Day WTI Price Trend Chart */}
         <div className="bg-white rounded-xl shadow-sm p-6 border border-slate-200 mb-8">

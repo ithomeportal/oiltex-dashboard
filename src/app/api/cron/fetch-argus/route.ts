@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { initDatabase } from "@/lib/db";
 import { fetchArgusReportAttachments } from "@/lib/graph-client";
 import { createArgusReport, getArgusReportByDate } from "@/lib/argus-db";
+import { extractArgusPricingFromBuffer } from "@/lib/argus-extractor";
+import { saveArgusPricing } from "@/lib/argus-pricing-db";
 import { UTApi } from "uploadthing/server";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const utapi = new UTApi();
 
@@ -76,6 +78,26 @@ export async function GET(request: Request) {
           file_key: key,
           file_size: size,
         });
+
+        // Extract pricing data from the PDF (non-blocking)
+        try {
+          const pricingData = await extractArgusPricingFromBuffer(
+            Buffer.from(attachment.contentBytes)
+          );
+          await saveArgusPricing(
+            reportDate,
+            pricingData,
+            pricingData as unknown as Record<string, unknown>
+          );
+        } catch (extractErr) {
+          const extractMsg =
+            extractErr instanceof Error
+              ? extractErr.message
+              : String(extractErr);
+          console.warn(
+            `Pricing extraction failed for ${attachment.filename}: ${extractMsg}`
+          );
+        }
 
         uploaded++;
       } catch (err) {
