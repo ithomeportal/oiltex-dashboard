@@ -19,6 +19,7 @@ function transformDbPrices(rows: Array<{ date: string; source: string; price_typ
   const nymex: Array<{ date: string; value: number | null; source: string; priceType: string }> = [];
   const chartExport: Array<{ date: string; value: number | null; source: string; priceType: string }> = [];
   const investingCom: Array<{ date: string; value: number | null; source: string; priceType: string }> = [];
+  const argusHouston: Array<{ date: string; value: number | null; source: string; priceType: string }> = [];
 
   for (const row of rows) {
     const normalizedDate = normalizeDate(row.date);
@@ -45,6 +46,8 @@ function transformDbPrices(rows: Array<{ date: string; source: string; price_typ
       chartExport.push(priceData);
     } else if (row.source === "INVESTING_COM") {
       investingCom.push(priceData);
+    } else if (row.source === "ARGUS" && row.price_type === "WTI_HOUSTON_WTD_AVG") {
+      argusHouston.push(priceData);
     }
   }
 
@@ -56,6 +59,7 @@ function transformDbPrices(rows: Array<{ date: string; source: string; price_typ
     nymex,
     chartExport,
     investingCom,
+    argusHouston,
     fetchedAt: new Date().toISOString(),
   };
 }

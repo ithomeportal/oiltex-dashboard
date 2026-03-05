@@ -12,6 +12,14 @@ interface AnnualData {
   percentChange: number | null;
 }
 
+interface FuturesCurvePoint {
+  date: string;
+  cl1: number | null;
+  cl2: number | null;
+  cl3: number | null;
+  cl4: number | null;
+}
+
 interface HistoricalPoint {
   date: string;
   price: number;
@@ -25,6 +33,8 @@ export default function AnalyticsPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("1y");
   const [loading, setLoading] = useState(true);
   const [annualChartType, setAnnualChartType] = useState<"performance" | "average">("average");
+  const [futuresCurveData, setFuturesCurveData] = useState<FuturesCurvePoint[]>([]);
+  const [futuresCurveRange, setFuturesCurveRange] = useState<"30" | "90" | "365">("90");
 
   useEffect(() => {
     fetchAnnualData();
@@ -33,6 +43,10 @@ export default function AnalyticsPage() {
   useEffect(() => {
     fetchHistoricalData(timeRange);
   }, [timeRange]);
+
+  useEffect(() => {
+    fetchFuturesCurve(futuresCurveRange);
+  }, [futuresCurveRange]);
 
   const fetchAnnualData = async () => {
     try {
@@ -43,6 +57,18 @@ export default function AnalyticsPage() {
       }
     } catch (error) {
       console.error("Error fetching annual data:", error);
+    }
+  };
+
+  const fetchFuturesCurve = async (days: string) => {
+    try {
+      const res = await fetch(`/api/analytics?type=futures-curve&days=${days}`);
+      const data = await res.json();
+      if (data.success) {
+        setFuturesCurveData(data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching futures curve:", error);
     }
   };
 
@@ -183,6 +209,117 @@ export default function AnalyticsPage() {
           );
         })}
       </svg>
+    );
+  };
+
+  // Futures Curve Chart (CL1-CL4)
+  const renderFuturesCurveChart = () => {
+    if (futuresCurveData.length < 2) {
+      return <div className="h-64 flex items-center justify-center text-slate-400">Loading futures data...</div>;
+    }
+
+    // Sample for perf
+    const sampleRate = Math.max(1, Math.floor(futuresCurveData.length / 300));
+    const sampled = futuresCurveData.filter((_, i) => i % sampleRate === 0 || i === futuresCurveData.length - 1);
+
+    const allVals = sampled.flatMap((d) => [d.cl1, d.cl2, d.cl3, d.cl4].filter((v): v is number => v !== null));
+    if (allVals.length === 0) return <div className="h-64 flex items-center justify-center text-slate-400">No futures data</div>;
+
+    const minP = Math.min(...allVals);
+    const maxP = Math.max(...allVals);
+    const range = maxP - minP || 1;
+    const padMin = minP - range * 0.05;
+    const padMax = maxP + range * 0.05;
+    const padRange = padMax - padMin;
+
+    const chartWidth = 900;
+    const chartHeight = 300;
+    const pX = 50;
+    const pY = 20;
+    const gW = chartWidth - pX - 30;
+    const gH = chartHeight - pY * 2;
+
+    const series: { key: keyof FuturesCurvePoint; color: string; label: string }[] = [
+      { key: "cl1", color: "#3b82f6", label: "CL1 (Front)" },
+      { key: "cl2", color: "#f59e0b", label: "CL2" },
+      { key: "cl3", color: "#22c55e", label: "CL3" },
+      { key: "cl4", color: "#a855f7", label: "CL4 (Back)" },
+    ];
+
+    const toPath = (key: keyof FuturesCurvePoint) => {
+      let started = false;
+      return sampled.map((d, i) => {
+        const v = d[key] as number | null;
+        if (v === null) return "";
+        const x = pX + (i / (sampled.length - 1)) * gW;
+        const y = pY + gH - ((v - padMin) / padRange) * gH;
+        if (!started) { started = true; return `M ${x} ${y}`; }
+        return `L ${x} ${y}`;
+      }).filter(Boolean).join(" ");
+    };
+
+    // Latest spread
+    const latestCl1 = futuresCurveData[futuresCurveData.length - 1]?.cl1;
+    const latestCl4 = futuresCurveData[futuresCurveData.length - 1]?.cl4;
+    const spread = latestCl1 != null && latestCl4 != null ? latestCl1 - latestCl4 : null;
+
+    return (
+      <div>
+        <div className="flex gap-6 mb-4 text-sm">
+          <div>
+            <span className="text-slate-500">CL1:</span>{" "}
+            <span className="font-medium">${latestCl1?.toFixed(2) ?? "--"}</span>
+          </div>
+          <div>
+            <span className="text-slate-500">CL4:</span>{" "}
+            <span className="font-medium">${latestCl4?.toFixed(2) ?? "--"}</span>
+          </div>
+          <div>
+            <span className="text-slate-500">Spread (CL1-CL4):</span>{" "}
+            <span className={`font-medium ${spread !== null && spread > 0 ? "text-red-600" : "text-green-600"}`}>
+              {spread !== null ? `${spread > 0 ? "+" : ""}$${spread.toFixed(2)}` : "--"}
+            </span>
+            <span className="text-slate-400 text-xs ml-1">
+              {spread !== null ? (spread > 0 ? "backwardation" : "contango") : ""}
+            </span>
+          </div>
+        </div>
+        <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-64 md:h-80">
+          {/* Grid */}
+          {[0, 0.25, 0.5, 0.75, 1].map((r) => {
+            const y = pY + gH * (1 - r);
+            const val = padMin + padRange * r;
+            return (
+              <g key={r}>
+                <line x1={pX} y1={y} x2={chartWidth - 30} y2={y} stroke="#e2e8f0" strokeWidth="1" strokeDasharray={r === 0 ? "none" : "4,4"} />
+                <text x={pX - 5} y={y + 4} textAnchor="end" fontSize="10" fill="#64748b">${val.toFixed(0)}</text>
+              </g>
+            );
+          })}
+          {/* Lines */}
+          {series.map((s) => (
+            <path key={s.key} d={toPath(s.key)} fill="none" stroke={s.color} strokeWidth={s.key === "cl1" ? 2.5 : 1.5} strokeLinecap="round" opacity={s.key === "cl1" ? 1 : 0.7} />
+          ))}
+          {/* X-axis */}
+          {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+            const idx = Math.floor(ratio * (sampled.length - 1));
+            const d = sampled[idx];
+            if (!d) return null;
+            const x = pX + ratio * gW;
+            const label = new Date(d.date).toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+            return <text key={ratio} x={x} y={chartHeight - 5} textAnchor="middle" fontSize="10" fill="#64748b">{label}</text>;
+          })}
+        </svg>
+        {/* Legend */}
+        <div className="flex items-center gap-6 mt-2">
+          {series.map((s) => (
+            <span key={s.key} className="flex items-center gap-1.5 text-xs text-slate-600">
+              <span className="w-4 h-0.5 inline-block rounded" style={{ backgroundColor: s.color }}></span>
+              {s.label}
+            </span>
+          ))}
+        </div>
+      </div>
     );
   };
 
@@ -329,6 +466,32 @@ export default function AnalyticsPage() {
               </div>
             </div>
             {renderHistoricalChart()}
+          </div>
+
+          {/* Futures Curve */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800">NYMEX Futures Curve</h2>
+                <p className="text-xs text-slate-500 mt-0.5">CL1 (front month) through CL4 — shows contango/backwardation structure</p>
+              </div>
+              <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+                {(["30", "90", "365"] as const).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setFuturesCurveRange(d)}
+                    className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                      futuresCurveRange === d
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {d === "30" ? "30D" : d === "90" ? "90D" : "1Y"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {renderFuturesCurveChart()}
           </div>
 
           {/* Annual Charts */}

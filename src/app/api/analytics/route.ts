@@ -130,6 +130,40 @@ export async function GET(request: Request) {
       }));
 
       return NextResponse.json({ success: true, data: historicalData });
+    } else if (type === "futures-curve") {
+      const days = parseInt(searchParams.get("days") || "90");
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      const cutoffStr = cutoff.toISOString().split("T")[0];
+
+      const result = await client.query(`
+        SELECT date, price_type, value
+        FROM oil_prices
+        WHERE source = 'NYMEX_EIA'
+          AND price_type IN ('WTI_FUTURES_CL1', 'WTI_FUTURES_CL2', 'WTI_FUTURES_CL3', 'WTI_FUTURES_CL4')
+          AND date >= $1
+          AND value IS NOT NULL
+        ORDER BY date ASC, price_type ASC
+      `, [cutoffStr]);
+
+      const byDate: Record<string, Record<string, number>> = {};
+      for (const row of result.rows) {
+        const d = new Date(row.date).toISOString().split("T")[0];
+        if (!byDate[d]) byDate[d] = {};
+        byDate[d][row.price_type] = parseFloat(row.value);
+      }
+
+      const futuresData = Object.entries(byDate)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, prices]) => ({
+          date,
+          cl1: prices.WTI_FUTURES_CL1 ?? null,
+          cl2: prices.WTI_FUTURES_CL2 ?? null,
+          cl3: prices.WTI_FUTURES_CL3 ?? null,
+          cl4: prices.WTI_FUTURES_CL4 ?? null,
+        }));
+
+      return NextResponse.json({ success: true, data: futuresData });
     }
 
     return NextResponse.json({ success: false, error: "Invalid type parameter" }, { status: 400 });

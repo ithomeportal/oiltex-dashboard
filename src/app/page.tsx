@@ -19,6 +19,7 @@ interface LivePrices {
   nymex: PriceData[];
   chartExport: PriceData[];
   investingCom: PriceData[];
+  argusHouston: PriceData[];
   fetchedAt: string;
 }
 
@@ -438,8 +439,15 @@ export default function Dashboard() {
         {/* 30-Day Chart */}
         <div className="bg-slate-900 rounded-lg border border-slate-700 mb-6">
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-700">
-            <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">30-Day WTI Spot</span>
-            <span className="text-[10px] text-slate-500">{spotSource || "N/A"}</span>
+            <div className="flex items-center gap-4">
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">30-Day WTI</span>
+              <div className="flex items-center gap-3 text-[10px]">
+                <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-green-500 inline-block"></span><span className="text-slate-500">Spot ({spotSource || "N/A"})</span></span>
+                {(prices?.argusHouston?.length ?? 0) > 0 && (
+                  <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-cyan-400 inline-block"></span><span className="text-slate-500">WTI Houston (Argus)</span></span>
+                )}
+              </div>
+            </div>
           </div>
           <div className="p-4">
             {(() => {
@@ -456,9 +464,18 @@ export default function Dashboard() {
                 );
               }
 
+              // Build Houston overlay data aligned by date
+              const houstonByDate = new Map<string, number>();
+              (prices?.argusHouston || []).forEach((p) => {
+                if (p.value !== null) houstonByDate.set(p.date, p.value);
+              });
+
               const priceValues = validPrices.map((p) => p.value as number);
-              const minPrice = Math.min(...priceValues);
-              const maxPrice = Math.max(...priceValues);
+              const houstonValues = validPrices.map((p) => houstonByDate.get(p.date) ?? null);
+              const allValues = [...priceValues, ...houstonValues.filter((v): v is number => v !== null)];
+
+              const minPrice = Math.min(...allValues);
+              const maxPrice = Math.max(...allValues);
               const priceRange = maxPrice - minPrice || 1;
               const paddedMin = minPrice - priceRange * 0.1;
               const paddedMax = maxPrice + priceRange * 0.1;
@@ -477,8 +494,22 @@ export default function Dashboard() {
                 return { x, y, value: p.value, date: p.date };
               });
 
+              // Houston points
+              const houstonPoints = validPrices.map((p, i) => {
+                const hVal = houstonByDate.get(p.date);
+                if (hVal == null) return null;
+                const x = paddingX + (i / (validPrices.length - 1)) * graphWidth;
+                const y = paddingY + graphHeight - ((hVal - paddedMin) / paddedRange) * graphHeight;
+                return { x, y };
+              });
+
               const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
               const areaPath = `${linePath} L ${points[points.length - 1].x} ${paddingY + graphHeight} L ${paddingX} ${paddingY + graphHeight} Z`;
+
+              const houstonPath = houstonPoints
+                .filter((p): p is { x: number; y: number } => p !== null)
+                .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+
               const midPrice = (minPrice + maxPrice) / 2;
               const lastPrice = priceValues[priceValues.length - 1];
               const firstPrice = priceValues[0];
@@ -508,6 +539,11 @@ export default function Dashboard() {
 
                     <path d={areaPath} fill="url(#areaGrad)" />
                     <path d={linePath} fill="none" stroke={trendUp ? "#22c55e" : "#ef4444"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+
+                    {/* WTI Houston overlay */}
+                    {houstonPath && (
+                      <path d={houstonPath} fill="none" stroke="#22d3ee" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="6,3" opacity="0.8" />
+                    )}
 
                     {/* End point */}
                     <circle cx={points[points.length - 1].x} cy={points[points.length - 1].y} r="3.5" fill={trendUp ? "#22c55e" : "#ef4444"} stroke="#0f172a" strokeWidth="2" />

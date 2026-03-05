@@ -360,6 +360,203 @@ export default function ArgusPricingPage() {
           </div>
         )}
 
+        {/* Trend Charts */}
+        {data?.rows && data.rows.length >= 2 && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+            {/* Differentials Trend */}
+            <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
+              <h3 className="text-sm font-medium text-slate-300 mb-3">Differentials Trend</h3>
+              {(() => {
+                const rows = [...data.rows].reverse();
+                const chartW = 400;
+                const chartH = 160;
+                const pX = 45;
+                const pY = 15;
+                const gW = chartW - pX - 15;
+                const gH = chartH - pY * 2;
+
+                const cmaDiffs = rows.map((r) => toNum(r.cma_diff_daily)).filter((v): v is number => v !== null);
+                const midDiffs = rows.map((r) => toNum(r.midland_diff_daily)).filter((v): v is number => v !== null);
+                const allVals = [...cmaDiffs, ...midDiffs];
+                if (allVals.length < 2) return <div className="h-32 flex items-center justify-center text-slate-500 text-sm">Not enough data</div>;
+
+                const minV = Math.min(...allVals);
+                const maxV = Math.max(...allVals);
+                const range = maxV - minV || 0.1;
+                const padMin = minV - range * 0.1;
+                const padMax = maxV + range * 0.1;
+                const padRange = padMax - padMin;
+
+                const toPoints = (vals: (number | null)[]) =>
+                  vals.map((v, i) => v !== null ? {
+                    x: pX + (i / Math.max(vals.length - 1, 1)) * gW,
+                    y: pY + gH - ((v - padMin) / padRange) * gH,
+                  } : null);
+
+                const cmaPoints = toPoints(rows.map((r) => toNum(r.cma_diff_daily)));
+                const midPoints = toPoints(rows.map((r) => toNum(r.midland_diff_daily)));
+
+                const toPath = (pts: ({ x: number; y: number } | null)[]) =>
+                  pts.filter((p): p is { x: number; y: number } => p !== null)
+                    .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+
+                // Zero line
+                const zeroY = pY + gH - ((0 - padMin) / padRange) * gH;
+
+                return (
+                  <svg viewBox={`0 0 ${chartW} ${chartH}`} className="w-full h-32 md:h-40">
+                    {/* Zero line */}
+                    {zeroY >= pY && zeroY <= pY + gH && (
+                      <line x1={pX} y1={zeroY} x2={chartW - 15} y2={zeroY} stroke="#475569" strokeWidth="1" strokeDasharray="4,4" />
+                    )}
+                    {/* Grid */}
+                    {[0, 0.5, 1].map((r) => {
+                      const y = pY + gH * (1 - r);
+                      const val = padMin + padRange * r;
+                      return (
+                        <g key={r}>
+                          <line x1={pX} y1={y} x2={chartW - 15} y2={y} stroke="#1e293b" strokeWidth="1" />
+                          <text x={pX - 4} y={y + 3} textAnchor="end" fontSize="8" fill="#64748b" fontFamily="monospace">
+                            {val >= 0 ? "+" : ""}{val.toFixed(2)}
+                          </text>
+                        </g>
+                      );
+                    })}
+                    {/* CMA Diff line */}
+                    <path d={toPath(cmaPoints)} fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" />
+                    {/* Midland Diff line */}
+                    <path d={toPath(midPoints)} fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" />
+                    {/* X-axis labels */}
+                    {[0, Math.floor(rows.length / 2), rows.length - 1].map((idx) => {
+                      if (!rows[idx]) return null;
+                      const x = pX + (idx / Math.max(rows.length - 1, 1)) * gW;
+                      const d = new Date(rows[idx].report_date.split("T")[0] + "T00:00:00");
+                      return (
+                        <text key={idx} x={x} y={chartH - 2} textAnchor="middle" fontSize="8" fill="#64748b" fontFamily="monospace">
+                          {`${d.getMonth() + 1}/${d.getDate()}`}
+                        </text>
+                      );
+                    })}
+                  </svg>
+                );
+              })()}
+              <div className="flex items-center gap-4 mt-1 text-[10px]">
+                <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-amber-500 inline-block"></span><span className="text-slate-400">CMA Diff Daily</span></span>
+                <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-green-500 inline-block"></span><span className="text-slate-400">Midland Diff Daily</span></span>
+              </div>
+            </div>
+
+            {/* Est Net Price Trend */}
+            <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
+              <h3 className="text-sm font-medium text-slate-300 mb-3">Est Net Price Trend (MTD)</h3>
+              {(() => {
+                const rows = [...data.rows].reverse();
+                const chartW = 400;
+                const chartH = 160;
+                const pX = 45;
+                const pY = 15;
+                const gW = chartW - pX - 15;
+                const gH = chartH - pY * 2;
+
+                const estNets = rows.map((r) => {
+                  if (isWtlLease) {
+                    const wtl = toNum(r.wtl_midland_wtd_avg);
+                    return wtl !== null ? wtl - transport : null;
+                  }
+                  const en = toNum(r.est_net_mtd);
+                  return en !== null ? en - transport : null;
+                });
+                const cmaVals = rows.map((r) => toNum(r.nymex_cma_td));
+
+                const validNets = estNets.filter((v): v is number => v !== null);
+                const validCma = cmaVals.filter((v): v is number => v !== null);
+                const allVals = [...validNets, ...validCma];
+                if (allVals.length < 2) return <div className="h-32 flex items-center justify-center text-slate-500 text-sm">Not enough data</div>;
+
+                const minV = Math.min(...allVals);
+                const maxV = Math.max(...allVals);
+                const range = maxV - minV || 1;
+                const padMin = minV - range * 0.05;
+                const padMax = maxV + range * 0.05;
+                const padRange = padMax - padMin;
+
+                const toPoints = (vals: (number | null)[]) =>
+                  vals.map((v, i) => v !== null ? {
+                    x: pX + (i / Math.max(vals.length - 1, 1)) * gW,
+                    y: pY + gH - ((v - padMin) / padRange) * gH,
+                  } : null);
+
+                const netPoints = toPoints(estNets);
+                const cmaPoints = toPoints(cmaVals);
+
+                const toPath = (pts: ({ x: number; y: number } | null)[]) =>
+                  pts.filter((p): p is { x: number; y: number } => p !== null)
+                    .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+
+                // Fill area under est net line
+                const validNetPts = netPoints.filter((p): p is { x: number; y: number } => p !== null);
+                const netPath = toPath(netPoints);
+                const areaPath = validNetPts.length > 1
+                  ? `${netPath} L ${validNetPts[validNetPts.length - 1].x} ${pY + gH} L ${validNetPts[0].x} ${pY + gH} Z`
+                  : "";
+
+                const trendUp = validNets.length >= 2 && validNets[validNets.length - 1] >= validNets[0];
+
+                return (
+                  <svg viewBox={`0 0 ${chartW} ${chartH}`} className="w-full h-32 md:h-40">
+                    <defs>
+                      <linearGradient id="estNetGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={trendUp ? "#3b82f6" : "#ef4444"} stopOpacity="0.2" />
+                        <stop offset="100%" stopColor={trendUp ? "#3b82f6" : "#ef4444"} stopOpacity="0.02" />
+                      </linearGradient>
+                    </defs>
+                    {/* Grid */}
+                    {[0, 0.25, 0.5, 0.75, 1].map((r) => {
+                      const y = pY + gH * (1 - r);
+                      const val = padMin + padRange * r;
+                      return (
+                        <g key={r}>
+                          <line x1={pX} y1={y} x2={chartW - 15} y2={y} stroke="#1e293b" strokeWidth="1" />
+                          {r % 0.5 === 0 && (
+                            <text x={pX - 4} y={y + 3} textAnchor="end" fontSize="8" fill="#64748b" fontFamily="monospace">
+                              ${val.toFixed(0)}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    })}
+                    {/* Area fill */}
+                    {areaPath && <path d={areaPath} fill="url(#estNetGrad)" />}
+                    {/* CMA line (dimmed reference) */}
+                    <path d={toPath(cmaPoints)} fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.5" />
+                    {/* Est Net line */}
+                    <path d={netPath} fill="none" stroke={trendUp ? "#3b82f6" : "#ef4444"} strokeWidth="2" strokeLinecap="round" />
+                    {/* End dot */}
+                    {validNetPts.length > 0 && (
+                      <circle cx={validNetPts[validNetPts.length - 1].x} cy={validNetPts[validNetPts.length - 1].y} r="3" fill={trendUp ? "#3b82f6" : "#ef4444"} stroke="#1e293b" strokeWidth="1.5" />
+                    )}
+                    {/* X-axis */}
+                    {[0, Math.floor(rows.length / 2), rows.length - 1].map((idx) => {
+                      if (!rows[idx]) return null;
+                      const x = pX + (idx / Math.max(rows.length - 1, 1)) * gW;
+                      const d = new Date(rows[idx].report_date.split("T")[0] + "T00:00:00");
+                      return (
+                        <text key={idx} x={x} y={chartH - 2} textAnchor="middle" fontSize="8" fill="#64748b" fontFamily="monospace">
+                          {`${d.getMonth() + 1}/${d.getDate()}`}
+                        </text>
+                      );
+                    })}
+                  </svg>
+                );
+              })()}
+              <div className="flex items-center gap-4 mt-1 text-[10px]">
+                <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-blue-500 inline-block"></span><span className="text-slate-400">Est Net (after lease diff)</span></span>
+                <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-amber-500 inline-block opacity-50" style={{ borderTop: "1px dashed" }}></span><span className="text-slate-400">NYMEX CMA</span></span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Daily Table */}
         <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
           <table className="w-full">
