@@ -354,60 +354,11 @@ export default function ArgusPricingPage() {
                 </>
               )}
             </div>
+            <div className="text-xs text-slate-500 mt-3">
+              * See <a href="#exhibit-a" className="text-blue-400 hover:text-blue-300 underline">Exhibit A</a> for lease transportation differentials
+            </div>
           </div>
         )}
-
-        {/* Lease Differentials Reference */}
-        <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden mb-8">
-          <div className="px-4 py-3 border-b border-slate-700">
-            <h3 className="text-sm font-medium text-slate-300">Lease Transportation Differentials (Exhibit A)</h3>
-            <p className="text-xs text-slate-500 mt-1">
-              Includes Big Star Crude truck rate (one-way mileage) + $0.25 Marathon unloading + OilTex margin. All plus FSC.
-            </p>
-          </div>
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-700">
-                <th className="text-left px-4 py-2 text-xs font-medium text-slate-400">Location</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-slate-400">County</th>
-                <th className="text-right px-4 py-2 text-xs font-medium text-slate-400">Lease Diff</th>
-                <th className="text-center px-4 py-2 text-xs font-medium text-slate-400">Base Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              {LEASE_DIFFERENTIALS.map((lease) => (
-                <tr
-                  key={lease.name}
-                  className={`border-b border-slate-700/50 transition-colors ${
-                    lease.name === selectedLease
-                      ? "bg-blue-500/10"
-                      : "hover:bg-slate-700/30"
-                  }`}
-                >
-                  <td className="px-4 py-2 text-sm text-white">
-                    {lease.name}
-                    {lease.name === selectedLease && (
-                      <span className="ml-2 text-xs text-blue-400">selected</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2 text-sm text-slate-400">{lease.county}</td>
-                  <td className="px-4 py-2 text-sm text-right text-red-400 font-mono">
-                    -${lease.diff.toFixed(2)}
-                  </td>
-                  <td className="px-4 py-2 text-sm text-center">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                      lease.base === "WTL"
-                        ? "bg-emerald-500/20 text-emerald-400"
-                        : "bg-amber-500/20 text-amber-400"
-                    }`}>
-                      {lease.base}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
 
         {/* Daily Table */}
         <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
@@ -550,6 +501,58 @@ export default function ArgusPricingPage() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Exhibit A — Lease Transportation Differentials */}
+        <div id="exhibit-a" className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden mt-8">
+          <div className="px-4 py-3 border-b border-slate-700">
+            <h3 className="text-sm font-medium text-slate-300">Exhibit A — Transportation Differentials</h3>
+            <p className="text-xs text-slate-500 mt-1">
+              Includes Big Star Crude truck rate (one-way mileage) + $0.25 Marathon unloading + OilTex margin. All plus FSC.
+            </p>
+          </div>
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-700">
+                <th className="text-left px-4 py-2 text-xs font-medium text-slate-400">Location</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-slate-400">County</th>
+                <th className="text-right px-4 py-2 text-xs font-medium text-slate-400">Lease Diff</th>
+                <th className="text-center px-4 py-2 text-xs font-medium text-slate-400">Base Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              {LEASE_DIFFERENTIALS.map((lease) => (
+                <tr
+                  key={lease.name}
+                  className={`border-b border-slate-700/50 transition-colors ${
+                    lease.name === selectedLease
+                      ? "bg-blue-500/10"
+                      : "hover:bg-slate-700/30"
+                  }`}
+                >
+                  <td className="px-4 py-2 text-sm text-white">
+                    {lease.name}
+                    {lease.name === selectedLease && (
+                      <span className="ml-2 text-xs text-blue-400">selected</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-sm text-slate-400">{lease.county}</td>
+                  <td className="px-4 py-2 text-sm text-right text-red-400 font-mono">
+                    -${lease.diff.toFixed(2)}
+                  </td>
+                  <td className="px-4 py-2 text-sm text-center">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                      lease.base === "WTL"
+                        ? "bg-emerald-500/20 text-emerald-400"
+                        : "bg-amber-500/20 text-amber-400"
+                    }`}>
+                      {lease.base}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </DashboardLayout>
