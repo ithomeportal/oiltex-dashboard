@@ -185,6 +185,7 @@ export async function getLatestPrices(days: number = 30) {
       `SELECT date, source, price_type, value, unit
        FROM oil_prices
        WHERE date >= CURRENT_DATE - INTERVAL '1 day' * $1
+         AND date <= CURRENT_DATE
        ORDER BY date DESC, source, price_type`,
       [days]
     );

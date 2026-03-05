@@ -326,7 +326,7 @@ export default function HistoryPage() {
                       >
                         <td className="px-4 py-3 text-sm font-medium">
                           <span className={weekend ? "text-slate-400" : "text-slate-800"}>
-                            {dayName} {dateFormatted}
+                            {dateFormatted} {dayName}
                           </span>
                           {weekend && (
                             <span className="ml-2 text-xs text-slate-400">(Wknd)</span>
