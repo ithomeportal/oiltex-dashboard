@@ -12,6 +12,9 @@ export interface ArgusPricingData {
   cma_diff_mtd: number | null;
   midland_diff_daily: number | null;
   midland_diff_mtd: number | null;
+  wtl_midland_low: number | null;
+  wtl_midland_high: number | null;
+  wtl_midland_wtd_avg: number | null;
   extraction_confidence: number | null;
 }
 
@@ -23,6 +26,9 @@ interface RawExtraction {
   cma_diff_mtd: number | null;
   midland_diff_daily: number | null;
   midland_diff_mtd: number | null;
+  wtl_midland_low: number | null;
+  wtl_midland_high: number | null;
+  wtl_midland_wtd_avg: number | null;
   extraction_confidence: number | null;
 }
 
@@ -35,9 +41,12 @@ Extract the following values from the pricing table on Page 2:
 3. **NYMEX CMA TD** — The "CMA Nymex" or "CMA to-date" value. This is the running average of NYMEX WTI settlements for the delivery month. Look in the row labeled "CMA Nymex" or similar. This is typically in the range 20-200 $/bbl.
 4. **CMA Diff Daily** — The daily WTI diff to CMA Nymex value. Look for the "WTI diff to CMA Nymex" row, daily column. Can be negative or positive, typically -20 to +20.
 5. **CMA Diff MTD** — The month-to-date weighted average of the WTI diff to CMA Nymex. Same row as above, MTD/weighted avg column.
-6. **Midland Diff Daily** — The daily WTL Midland vs WTI Cushing differential. Look for "WTL Midland" or "Midland" row, daily column. Typically -5 to +5.
-7. **Midland Diff MTD** — The month-to-date weighted average of the Midland differential. Same row, MTD/weighted avg column.
-8. **Extraction Confidence** — Your confidence in the extraction accuracy (0-100).
+6. **Midland Diff Daily** — The daily WTL Midland vs WTI Cushing differential. Look for "WTL Midland" row in the Texas section, "Diff low" or daily column. Typically -5 to +5.
+7. **Midland Diff MTD** — The month-to-date weighted average of the Midland differential. Same row, "Diff MTD weighted average" column.
+8. **WTL Midland Low** — The flat WTL Midland price from the "Low" column in the Texas section, "WTL Midland" row. This is the absolute $/bbl price, typically 50-150.
+9. **WTL Midland High** — The flat WTL Midland price from the "High" column in the Texas section, "WTL Midland" row. This is the absolute $/bbl price, typically 50-150.
+10. **WTL Midland Wtd Avg** — The flat WTL Midland price from the "Weighted average" column in the Texas section, "WTL Midland" row. This is the absolute $/bbl price, typically 50-150.
+11. **Extraction Confidence** — Your confidence in the extraction accuracy (0-100).
 
 IMPORTANT:
 - All price values should be plain numbers (no $ signs, no units)
@@ -45,6 +54,7 @@ IMPORTANT:
 - Use null for any value you cannot find
 - The contract month should be the delivery month referenced in the pricing table
 - Look specifically at the table with WTI-related differentials on Page 2
+- The WTL Midland flat prices (Low, High, Weighted average) are in the Texas section and are absolute $/bbl values (NOT differentials)
 
 Return ONLY valid JSON matching this exact structure:
 {
@@ -55,6 +65,9 @@ Return ONLY valid JSON matching this exact structure:
   "cma_diff_mtd": null,
   "midland_diff_daily": null,
   "midland_diff_mtd": null,
+  "wtl_midland_low": null,
+  "wtl_midland_high": null,
+  "wtl_midland_wtd_avg": null,
   "extraction_confidence": null
 }`;
 
@@ -161,6 +174,24 @@ function validateExtractedPricing(data: RawExtraction): string[] {
     (data.midland_diff_mtd < -20 || data.midland_diff_mtd > 20)
   ) {
     errors.push(`Midland Diff MTD out of range: ${data.midland_diff_mtd}`);
+  }
+  if (
+    data.wtl_midland_low !== null &&
+    (data.wtl_midland_low < 20 || data.wtl_midland_low > 200)
+  ) {
+    errors.push(`WTL Midland Low out of range: ${data.wtl_midland_low}`);
+  }
+  if (
+    data.wtl_midland_high !== null &&
+    (data.wtl_midland_high < 20 || data.wtl_midland_high > 200)
+  ) {
+    errors.push(`WTL Midland High out of range: ${data.wtl_midland_high}`);
+  }
+  if (
+    data.wtl_midland_wtd_avg !== null &&
+    (data.wtl_midland_wtd_avg < 20 || data.wtl_midland_wtd_avg > 200)
+  ) {
+    errors.push(`WTL Midland Wtd Avg out of range: ${data.wtl_midland_wtd_avg}`);
   }
   if (!data.report_date || !/^\d{4}-\d{2}-\d{2}$/.test(data.report_date)) {
     errors.push(`Invalid report_date format: ${data.report_date}`);

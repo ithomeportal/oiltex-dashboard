@@ -127,11 +127,23 @@ export async function initDatabase() {
         midland_diff_mtd DECIMAL(10,4),
         est_net_daily DECIMAL(10,4),
         est_net_mtd DECIMAL(10,4),
+        wtl_midland_low DECIMAL(10,4),
+        wtl_midland_high DECIMAL(10,4),
+        wtl_midland_wtd_avg DECIMAL(10,4),
         extraction_confidence INTEGER,
         raw_extraction JSONB,
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(report_date, contract_month)
       );
+    `);
+
+    // Add WTL Midland flat price columns if they don't exist (migration for existing tables)
+    await client.query(`
+      DO $$ BEGIN
+        ALTER TABLE argus_pricing ADD COLUMN IF NOT EXISTS wtl_midland_low DECIMAL(10,4);
+        ALTER TABLE argus_pricing ADD COLUMN IF NOT EXISTS wtl_midland_high DECIMAL(10,4);
+        ALTER TABLE argus_pricing ADD COLUMN IF NOT EXISTS wtl_midland_wtd_avg DECIMAL(10,4);
+      END $$;
     `);
 
     // Initialize OPs Inventory tables

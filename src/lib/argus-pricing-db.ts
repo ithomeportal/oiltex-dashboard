@@ -12,6 +12,9 @@ export interface ArgusPricingRow {
   midland_diff_mtd: number | null;
   est_net_daily: number | null;
   est_net_mtd: number | null;
+  wtl_midland_low: number | null;
+  wtl_midland_high: number | null;
+  wtl_midland_wtd_avg: number | null;
   extraction_confidence: number | null;
   raw_extraction: Record<string, unknown> | null;
   created_at: string;
@@ -47,8 +50,9 @@ export async function saveArgusPricing(
         cma_diff_daily, cma_diff_mtd,
         midland_diff_daily, midland_diff_mtd,
         est_net_daily, est_net_mtd,
+        wtl_midland_low, wtl_midland_high, wtl_midland_wtd_avg,
         extraction_confidence, raw_extraction
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       ON CONFLICT (report_date, contract_month)
       DO UPDATE SET
         nymex_cma_td = EXCLUDED.nymex_cma_td,
@@ -58,6 +62,9 @@ export async function saveArgusPricing(
         midland_diff_mtd = EXCLUDED.midland_diff_mtd,
         est_net_daily = EXCLUDED.est_net_daily,
         est_net_mtd = EXCLUDED.est_net_mtd,
+        wtl_midland_low = EXCLUDED.wtl_midland_low,
+        wtl_midland_high = EXCLUDED.wtl_midland_high,
+        wtl_midland_wtd_avg = EXCLUDED.wtl_midland_wtd_avg,
         extraction_confidence = EXCLUDED.extraction_confidence,
         raw_extraction = EXCLUDED.raw_extraction
       RETURNING *`,
@@ -71,6 +78,9 @@ export async function saveArgusPricing(
         data.midland_diff_mtd,
         estNetDaily,
         estNetMtd,
+        data.wtl_midland_low,
+        data.wtl_midland_high,
+        data.wtl_midland_wtd_avg,
         data.extraction_confidence,
         JSON.stringify(rawExtraction),
       ]

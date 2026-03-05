@@ -14,6 +14,9 @@ interface ArgusPricingRow {
   midland_diff_mtd: number | null;
   est_net_daily: number | null;
   est_net_mtd: number | null;
+  wtl_midland_low: number | null;
+  wtl_midland_high: number | null;
+  wtl_midland_wtd_avg: number | null;
   extraction_confidence: number | null;
 }
 
@@ -184,7 +187,7 @@ export default function ArgusPricingPage() {
         )}
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
           {/* NYMEX CMA TD */}
           <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl shadow-sm p-5 text-white">
             <div className="text-sm text-amber-100 mb-1">NYMEX CMA TD</div>
@@ -215,6 +218,17 @@ export default function ArgusPricingPage() {
             </div>
             <div className="text-xs text-slate-400 mt-2">
               WTL Midland vs WTI Cushing
+            </div>
+          </div>
+
+          {/* WTL Midland Flat Price */}
+          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl shadow-sm p-5 text-white">
+            <div className="text-sm text-emerald-100 mb-1">WTL Midland</div>
+            <div className="text-3xl font-bold">
+              ${formatPrice(latest?.wtl_midland_wtd_avg)}
+            </div>
+            <div className="text-xs text-emerald-200 mt-2">
+              Wtd Avg (L: ${formatPrice(latest?.wtl_midland_low)} / H: ${formatPrice(latest?.wtl_midland_high)})
             </div>
           </div>
 
@@ -304,6 +318,9 @@ export default function ArgusPricingPage() {
                   Midland MTD
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-slate-400">
+                  WTL Midland
+                </th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-slate-400">
                   Est Net Daily
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-slate-400">
@@ -318,7 +335,7 @@ export default function ArgusPricingPage() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={10}
                     className="px-4 py-12 text-center text-slate-400"
                   >
                     Loading...
@@ -327,7 +344,7 @@ export default function ArgusPricingPage() {
               ) : !data?.rows || data.rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={10}
                     className="px-4 py-12 text-center text-slate-400"
                   >
                     No pricing data for {selectedMonth}. Run backfill extraction
@@ -369,6 +386,9 @@ export default function ArgusPricingPage() {
                       </td>
                       <td className="px-4 py-3 text-sm text-right text-green-400">
                         {formatDiff(row.midland_diff_mtd)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right font-medium text-emerald-400">
+                        ${formatPrice(row.wtl_midland_wtd_avg)}
                       </td>
                       <td className="px-4 py-3 text-sm text-right text-slate-300">
                         ${formatPrice(rowEstNetDaily)}

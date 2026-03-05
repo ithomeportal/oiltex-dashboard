@@ -27,6 +27,7 @@ interface ArgusPricingLatest {
   cma_diff_mtd: number | null;
   midland_diff_mtd: number | null;
   est_net_mtd: number | null;
+  wtl_midland_wtd_avg: number | null;
   report_date: string;
   contract_month: string;
 }
@@ -173,6 +174,7 @@ export default function Dashboard() {
           cma_diff_mtd: raw.cma_diff_mtd !== null ? parseFloat(raw.cma_diff_mtd) : null,
           midland_diff_mtd: raw.midland_diff_mtd !== null ? parseFloat(raw.midland_diff_mtd) : null,
           est_net_mtd: raw.est_net_mtd !== null ? parseFloat(raw.est_net_mtd) : null,
+          wtl_midland_wtd_avg: raw.wtl_midland_wtd_avg !== null ? parseFloat(raw.wtl_midland_wtd_avg) : null,
           report_date: raw.report_date,
           contract_month: raw.contract_month || latestMonth,
         });
@@ -467,7 +469,7 @@ export default function Dashboard() {
                 View Details →
               </Link>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl p-4 border border-amber-200">
                 <div className="text-xs text-amber-600 mb-1">NYMEX CMA TD</div>
                 <div className="text-2xl font-bold text-amber-800">
@@ -488,6 +490,15 @@ export default function Dashboard() {
                   {argusPricing.midland_diff_mtd !== null
                     ? `${argusPricing.midland_diff_mtd >= 0 ? "+" : ""}${argusPricing.midland_diff_mtd.toFixed(4)}`
                     : "--"}
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-4 border border-emerald-200">
+                <div className="text-xs text-emerald-600 mb-1">WTL Midland</div>
+                <div className="text-2xl font-bold text-emerald-800">
+                  ${argusPricing.wtl_midland_wtd_avg?.toFixed(2) ?? "--"}
+                </div>
+                <div className="text-xs text-emerald-500 mt-1">
+                  Weighted avg flat price
                 </div>
               </div>
               <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
