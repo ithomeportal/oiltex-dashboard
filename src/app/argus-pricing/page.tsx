@@ -81,8 +81,9 @@ const LEASE_DIFFERENTIALS = [
 ] as const;
 
 function getDefaultContractMonth(): string {
-  // Default to current month; will be overridden once we fetch available months
+  // Contract month is always current month + 1 (Argus reports in month M price delivery month M+1)
   const now = new Date();
+  now.setMonth(now.getMonth() + 1);
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 

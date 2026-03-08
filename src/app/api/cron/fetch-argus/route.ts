@@ -31,8 +31,8 @@ export async function GET(request: Request) {
   try {
     await initDatabase();
 
-    // Fetch recent Argus emails with PDF attachments (last 2 days)
-    const attachments = await fetchArgusReportAttachments(2);
+    // Fetch recent Argus emails with PDF attachments (last 4 days for resilience)
+    const attachments = await fetchArgusReportAttachments(4);
 
     let uploaded = 0;
     let skipped = 0;
