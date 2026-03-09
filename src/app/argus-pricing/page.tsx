@@ -20,6 +20,33 @@ interface ArgusPricingRow {
   extraction_confidence: number | null;
 }
 
+interface ProfitData {
+  delivery_month: string;
+  nymex_cma: number | null;
+  fixed_deduction: number;
+  marathon: {
+    period: { start: string; end: string };
+    cma_diff_avg: number | null;
+    wti_midland_diff_avg: number | null;
+    trading_days: number;
+    sell_price: number | null;
+  };
+  devon: {
+    period: { start: string; end: string };
+    cma_diff_avg: number | null;
+    wti_midland_diff_avg: number | null;
+    trading_days: number;
+    buy_price_before_transport: number | null;
+  };
+  net_delta_before_transport: number | null;
+  volume: {
+    ticket_count: number;
+    delivered_bbls: number;
+    net_barrels: number;
+    shrinkage: number;
+  };
+}
+
 interface PricingApiResponse {
   success: boolean;
   data: {
@@ -76,7 +103,7 @@ const LEASE_DIFFERENTIALS = [
   { name: "BFDU 52H/56H", county: "Eddy County, NM", diff: 2.26, base: "WTI" as const },
   { name: "BFDU 61H", county: "Eddy County, NM", diff: 2.26, base: "WTI" as const },
   { name: "GREEN WAVE 20 CTB 1", county: "Lea County, NM", diff: 2.26, base: "WTL" as const },
-  { name: "LAGUNA SALADO 22 FEDERAL", county: "Eddy County, NM", diff: 2.26, base: "WTI" as const },
+  { name: "LAGUNA SALADO 22 FEDERAL C", county: "Eddy County, NM", diff: 2.26, base: "WTI" as const },
   { name: "SAND 7 FED OIL", county: "Eddy County, NM", diff: 2.26, base: "WTI" as const },
 ] as const;
 
@@ -96,6 +123,7 @@ export default function ArgusPricingPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [profitData, setProfitData] = useState<ProfitData | null>(null);
 
   const activeLease = LEASE_DIFFERENTIALS.find((l) => l.name === selectedLease) || LEASE_DIFFERENTIALS[1];
 
@@ -130,9 +158,22 @@ export default function ArgusPricingPage() {
     []
   );
 
+  const fetchProfit = useCallback(async (month: string) => {
+    try {
+      const res = await fetch(`/api/argus-pricing/profit?delivery_month=${month}`);
+      const json = await res.json();
+      if (json.success) {
+        setProfitData(json.data);
+      }
+    } catch {
+      // Profit data is supplementary, don't block on errors
+    }
+  }, []);
+
   useEffect(() => {
     fetchData(selectedMonth, page);
-  }, [selectedMonth, page, fetchData]);
+    fetchProfit(selectedMonth);
+  }, [selectedMonth, page, fetchData, fetchProfit]);
 
   const latest = data?.latest;
   const transport = parseFloat(transportCost) || 0;
@@ -286,6 +327,177 @@ export default function ArgusPricingPage() {
             </div>
           </div>
         </div>
+
+        {/* Buy / Sell / Profit KPI Cards */}
+        {profitData && (
+          <div className="mb-8">
+            <div className="text-sm text-slate-400 mb-3 flex items-center gap-2">
+              <span>Monthly P&L — {formatMonthName(profitData.delivery_month)} Delivery</span>
+              {profitData.marathon.trading_days > 0 && profitData.devon.trading_days > 0 && (
+                <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded">
+                  Closed
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+              {/* Buy Price (Devon) */}
+              {(() => {
+                const buyPrice = profitData.devon.buy_price_before_transport !== null
+                  ? profitData.devon.buy_price_before_transport - transport
+                  : null;
+                return (
+                  <div className="bg-slate-800 rounded-xl border border-slate-700 p-5">
+                    <div className="text-sm text-slate-400 mb-1">Buy Price (Devon)</div>
+                    <div className="text-3xl font-bold text-orange-400">
+                      ${buyPrice !== null ? formatPrice(buyPrice) : "--"}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-2">
+                      CMA + Diffs - ${transport.toFixed(2)} transport
+                    </div>
+                    <div className="text-xs text-slate-600 mt-1 font-mono">
+                      {profitData.devon.trading_days} trading days
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Sell Price (Marathon) */}
+              <div className="bg-slate-800 rounded-xl border border-slate-700 p-5">
+                <div className="text-sm text-slate-400 mb-1">Sell Price (Marathon)</div>
+                <div className="text-3xl font-bold text-cyan-400">
+                  ${profitData.marathon.sell_price !== null
+                    ? formatPrice(profitData.marathon.sell_price)
+                    : "--"}
+                </div>
+                <div className="text-xs text-slate-500 mt-2">
+                  CMA - $0.25 + Diffs
+                </div>
+                <div className="text-xs text-slate-600 mt-1 font-mono">
+                  {profitData.marathon.trading_days} days ({profitData.marathon.period.start.slice(5)} to {profitData.marathon.period.end.slice(5)})
+                </div>
+              </div>
+
+              {/* Gross Margin */}
+              {(() => {
+                const buyPrice = profitData.devon.buy_price_before_transport !== null
+                  ? profitData.devon.buy_price_before_transport - transport
+                  : null;
+                const margin = buyPrice !== null && profitData.marathon.sell_price !== null
+                  ? profitData.marathon.sell_price - buyPrice
+                  : null;
+                return (
+                  <div className={`rounded-xl border p-5 ${
+                    margin !== null && margin >= 0
+                      ? "bg-green-500/10 border-green-500/30"
+                      : "bg-red-500/10 border-red-500/30"
+                  }`}>
+                    <div className="text-sm text-slate-400 mb-1">Net Margin</div>
+                    <div className={`text-3xl font-bold ${
+                      margin !== null && margin >= 0 ? "text-green-400" : "text-red-400"
+                    }`}>
+                      {margin !== null ? `${margin >= 0 ? "+" : ""}$${formatPrice(margin)}` : "--"}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-2">per barrel</div>
+                    <div className="text-xs text-slate-600 mt-1 font-mono">
+                      Sell - Buy (incl transport)
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Delivered Volume */}
+              <div className="bg-slate-800 rounded-xl border border-slate-700 p-5">
+                <div className="text-sm text-slate-400 mb-1">Delivered Volume</div>
+                <div className="text-3xl font-bold text-white">
+                  {profitData.volume.delivered_bbls > 0
+                    ? profitData.volume.delivered_bbls.toLocaleString(undefined, { maximumFractionDigits: 0 })
+                    : "--"}
+                </div>
+                <div className="text-xs text-slate-500 mt-2">
+                  {profitData.volume.ticket_count} tickets
+                </div>
+                {profitData.volume.shrinkage !== 0 && (
+                  <div className="text-xs text-yellow-500 mt-1 font-mono">
+                    {profitData.volume.shrinkage > 0 ? "+" : ""}{profitData.volume.shrinkage.toFixed(1)} vs net
+                  </div>
+                )}
+              </div>
+
+              {/* Total Profit */}
+              {(() => {
+                const buyPrice = profitData.devon.buy_price_before_transport !== null
+                  ? profitData.devon.buy_price_before_transport - transport
+                  : null;
+                const margin = buyPrice !== null && profitData.marathon.sell_price !== null
+                  ? profitData.marathon.sell_price - buyPrice
+                  : null;
+                const totalProfit = margin !== null && profitData.volume.delivered_bbls > 0
+                  ? margin * profitData.volume.delivered_bbls
+                  : null;
+                return (
+                  <div className={`rounded-xl p-5 ${
+                    totalProfit !== null && totalProfit >= 0
+                      ? "bg-gradient-to-br from-green-600 to-green-700 text-white"
+                      : totalProfit !== null
+                        ? "bg-gradient-to-br from-red-600 to-red-700 text-white"
+                        : "bg-slate-800 border border-slate-700"
+                  }`}>
+                    <div className={`text-sm mb-1 ${totalProfit !== null ? "text-white/80" : "text-slate-400"}`}>
+                      Total Profit
+                    </div>
+                    <div className="text-3xl font-bold">
+                      {totalProfit !== null
+                        ? `${totalProfit >= 0 ? "+" : "-"}$${Math.abs(totalProfit).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                        : "--"}
+                    </div>
+                    <div className={`text-xs mt-2 ${totalProfit !== null ? "text-white/60" : "text-slate-500"}`}>
+                      {formatMonthName(profitData.delivery_month)}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Formula Breakdown mini */}
+              <div className="bg-slate-800 rounded-xl border border-slate-700 p-5">
+                <div className="text-sm text-slate-400 mb-2">Delta Breakdown</div>
+                <div className="space-y-1 text-xs font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Marathon diffs</span>
+                    <span className="text-cyan-400">
+                      +{((profitData.marathon.cma_diff_avg ?? 0) + (profitData.marathon.wti_midland_diff_avg ?? 0)).toFixed(4)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Devon diffs</span>
+                    <span className="text-orange-400">
+                      -{((profitData.devon.cma_diff_avg ?? 0) + (profitData.devon.wti_midland_diff_avg ?? 0)).toFixed(4)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Fixed deduction</span>
+                    <span className="text-red-400">-0.2500</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Transport credit</span>
+                    <span className="text-green-400">+{transport.toFixed(4)}</span>
+                  </div>
+                  <div className="border-t border-slate-700 pt-1 flex justify-between font-bold">
+                    <span className="text-slate-400">Net $/bbl</span>
+                    <span className={
+                      profitData.net_delta_before_transport !== null &&
+                      profitData.net_delta_before_transport + transport >= 0
+                        ? "text-green-400" : "text-red-400"
+                    }>
+                      {profitData.net_delta_before_transport !== null
+                        ? `${(profitData.net_delta_before_transport + transport) >= 0 ? "+" : ""}${(profitData.net_delta_before_transport + transport).toFixed(4)}`
+                        : "--"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Formula breakdown */}
         {latest && (
