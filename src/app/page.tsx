@@ -23,6 +23,12 @@ interface LivePrices {
   fetchedAt: string;
 }
 
+interface WellBreakdown {
+  shipper_name: string;
+  ticket_count: number;
+  delivered_bbls: number;
+}
+
 interface ArgusPricingLatest {
   nymex_cma_td: number | null;
   cma_diff_mtd: number | null;
@@ -145,6 +151,7 @@ function formatDiffSigned(val: number | null | undefined): string {
 export default function Dashboard() {
   const [prices, setPrices] = useState<LivePrices | null>(null);
   const [argusPricing, setArgusPricing] = useState<ArgusPricingLatest | null>(null);
+  const [ticketLanes, setTicketLanes] = useState<WellBreakdown[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchPrices = useCallback(async () => {
@@ -188,10 +195,32 @@ export default function Dashboard() {
     }
   }, []);
 
+  const fetchTicketLanes = useCallback(async () => {
+    try {
+      // Current month in YYYY-MM format
+      const now = new Date();
+      const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const res = await fetch(`/api/ops-inventory/summary?month=${month}`);
+      const json = await res.json();
+      if (json.success && json.data?.wells) {
+        setTicketLanes(
+          json.data.wells.map((w: { shipper_name: string; ticket_count: number; delivered_bbls: number }) => ({
+            shipper_name: w.shipper_name,
+            ticket_count: w.ticket_count,
+            delivered_bbls: w.delivered_bbls,
+          }))
+        );
+      }
+    } catch {
+      // Non-critical
+    }
+  }, []);
+
   useEffect(() => {
     fetchPrices();
     fetchArgusPricing();
-  }, [fetchPrices, fetchArgusPricing]);
+    fetchTicketLanes();
+  }, [fetchPrices, fetchArgusPricing, fetchTicketLanes]);
 
   // Latest market data
   const latestEIA = prices?.eia?.find((p) => p.value !== null);
@@ -586,6 +615,98 @@ export default function Dashboard() {
             })()}
           </div>
         </div>
+
+        {/* Ticket Volume by Lane */}
+        {ticketLanes.length > 0 && (
+          <div className="bg-slate-900 rounded-lg border border-slate-700 mb-6">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-700">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Delivery Volume by Lane</span>
+                <span className="text-[10px] text-slate-500">
+                  {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">
+                {ticketLanes.reduce((s, l) => s + l.ticket_count, 0)} tickets | {ticketLanes.reduce((s, l) => s + l.delivered_bbls, 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} bbls
+              </span>
+            </div>
+            <div className="p-4">
+              {(() => {
+                const lanes = ticketLanes;
+                const maxBbls = Math.max(...lanes.map((l) => l.delivered_bbls));
+                const chartW = 800;
+                const barH = 32;
+                const gap = 8;
+                const labelW = 200;
+                const valueW = 100;
+                const chartH = lanes.length * (barH + gap) + 10;
+                const barAreaW = chartW - labelW - valueW;
+
+                return (
+                  <svg viewBox={`0 0 ${chartW} ${chartH}`} className="w-full" style={{ minHeight: lanes.length * 40 }}>
+                    {lanes.map((lane, i) => {
+                      const y = i * (barH + gap) + 5;
+                      const barW = maxBbls > 0 ? (lane.delivered_bbls / maxBbls) * barAreaW : 0;
+                      const shortName = lane.shipper_name.length > 28
+                        ? lane.shipper_name.slice(0, 26) + "..."
+                        : lane.shipper_name;
+
+                      return (
+                        <g key={lane.shipper_name}>
+                          {/* Lane name */}
+                          <text
+                            x={labelW - 8}
+                            y={y + barH / 2 + 4}
+                            textAnchor="end"
+                            fontSize="11"
+                            fill="#94a3b8"
+                            fontFamily="monospace"
+                          >
+                            {shortName}
+                          </text>
+                          {/* Bar */}
+                          <rect
+                            x={labelW}
+                            y={y + 2}
+                            width={barW}
+                            height={barH - 4}
+                            rx="4"
+                            fill="#3b82f6"
+                            opacity="0.8"
+                          />
+                          {/* Ticket count badge on bar */}
+                          {barW > 40 && (
+                            <text
+                              x={labelW + 8}
+                              y={y + barH / 2 + 4}
+                              fontSize="10"
+                              fill="white"
+                              fontWeight="bold"
+                              fontFamily="monospace"
+                            >
+                              {lane.ticket_count} tix
+                            </text>
+                          )}
+                          {/* Barrel value */}
+                          <text
+                            x={labelW + barW + 8}
+                            y={y + barH / 2 + 4}
+                            fontSize="11"
+                            fill="#e2e8f0"
+                            fontWeight="bold"
+                            fontFamily="monospace"
+                          >
+                            {lane.delivered_bbls.toLocaleString(undefined, { maximumFractionDigits: 0 })} bbl
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                );
+              })()}
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         {prices?.fetchedAt && (
