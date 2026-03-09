@@ -203,8 +203,8 @@ export default function ArgusPricingPage() {
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-white">Argus Pricing</h1>
-            <p className="text-slate-400 mt-1">
+            <h1 className="text-2xl font-bold text-slate-800">Argus Pricing</h1>
+            <p className="text-slate-500 mt-1">
               Extracted from Argus Americas Crude daily reports
             </p>
           </div>
@@ -497,12 +497,12 @@ export default function ArgusPricingPage() {
                             ? `${netProfit >= 0 ? "+" : "-"}$${Math.abs(netProfit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                             : "--"}
                         </div>
-                        <div className={`text-sm mt-2 ${netProfit !== null ? "text-gray-800" : "text-slate-500"}`}>
+                        <div className={`text-sm mt-2 ${netProfit !== null ? (netProfit >= 0 ? "text-green-200" : "text-red-200") : "text-slate-500"}`}>
                           {formatMonthName(profitData.delivery_month)}
                           {netPerBbl !== null && ` | ${netPerBbl >= 0 ? "+" : ""}$${netPerBbl.toFixed(2)}/bbl`}
                         </div>
                       </div>
-                      <div className={`text-sm font-mono space-y-0.5 text-right ${netProfit !== null ? "text-gray-800" : "text-slate-600"}`}>
+                      <div className={`text-sm font-mono space-y-0.5 text-right ${netProfit !== null ? (netProfit >= 0 ? "text-green-200" : "text-red-200") : "text-slate-600"}`}>
                         <div>Revenue: ${grossRevenue !== null ? grossRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "--"}</div>
                         <div>Oil cost: ${oilCost !== null ? oilCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "--"} (Devon - ${transport.toFixed(2)} Exhibit A)</div>
                         <div>Freight: ${actualFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (McLeod actual)</div>
