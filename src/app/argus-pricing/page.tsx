@@ -424,7 +424,7 @@ export default function ArgusPricingPage() {
                 <div className="text-sm text-slate-400 mb-1">Actual Freight (McLeod)</div>
                 <div className="text-3xl font-bold text-violet-400">
                   ${profitData.freight.total_cost > 0
-                    ? profitData.freight.total_cost.toLocaleString(undefined, { maximumFractionDigits: 0 })
+                    ? profitData.freight.total_cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                     : "--"}
                 </div>
                 <div className="text-xs text-slate-500 mt-2">
@@ -445,7 +445,7 @@ export default function ArgusPricingPage() {
                 <div className="text-sm text-slate-400 mb-1">Delivered Volume</div>
                 <div className="text-3xl font-bold text-white">
                   {profitData.volume.delivered_bbls > 0
-                    ? profitData.volume.delivered_bbls.toLocaleString(undefined, { maximumFractionDigits: 0 })
+                    ? profitData.volume.delivered_bbls.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                     : "--"}
                 </div>
                 <div className="text-xs text-slate-500 mt-2">
@@ -494,7 +494,7 @@ export default function ArgusPricingPage() {
                         </div>
                         <div className="text-3xl font-bold">
                           {netProfit !== null
-                            ? `${netProfit >= 0 ? "+" : "-"}$${Math.abs(netProfit).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                            ? `${netProfit >= 0 ? "+" : "-"}$${Math.abs(netProfit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                             : "--"}
                         </div>
                         <div className={`text-xs mt-2 ${netProfit !== null ? "text-white/60" : "text-slate-500"}`}>
@@ -503,9 +503,9 @@ export default function ArgusPricingPage() {
                         </div>
                       </div>
                       <div className={`text-xs font-mono space-y-0.5 text-right ${netProfit !== null ? "text-white/50" : "text-slate-600"}`}>
-                        <div>Revenue: ${grossRevenue !== null ? grossRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "--"}</div>
-                        <div>Oil cost: ${oilCost !== null ? oilCost.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "--"} (Devon - ${transport.toFixed(2)} Exhibit A)</div>
-                        <div>Freight: ${actualFreight.toLocaleString(undefined, { maximumFractionDigits: 0 })} (McLeod actual)</div>
+                        <div>Revenue: ${grossRevenue !== null ? grossRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "--"}</div>
+                        <div>Oil cost: ${oilCost !== null ? oilCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "--"} (Devon - ${transport.toFixed(2)} Exhibit A)</div>
+                        <div>Freight: ${actualFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (McLeod actual)</div>
                       </div>
                     </div>
                   </div>
