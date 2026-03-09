@@ -46,23 +46,14 @@ export async function POST(request: Request) {
 
     // Generate 8-digit code
     const code = generateCode();
-    // Use explicit UTC timestamp for consistent timezone handling
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
-    console.log("Generating auth code:", {
-      email,
-      code,
-      expiresAt,
-      currentTime: new Date().toISOString()
-    });
-
-    // Save code to database
+    // Save code to database — use DB's NOW() + interval for consistent timestamps
     const client = await pool.connect();
     try {
       await client.query(
         `INSERT INTO auth_codes (email, code, expires_at)
-         VALUES ($1, $2, $3::timestamptz)`,
-        [email, code, expiresAt]
+         VALUES ($1, $2, NOW() + INTERVAL '10 minutes')`,
+        [email, code]
       );
     } finally {
       client.release();

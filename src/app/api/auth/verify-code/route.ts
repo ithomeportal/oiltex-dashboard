@@ -23,46 +23,43 @@ export async function POST(request: Request) {
     // Normalize code: trim whitespace
     const normalizedCode = code.toString().trim();
 
-    // Get current UTC time for comparison
-    const nowUtc = new Date().toISOString();
-
     const client = await pool.connect();
     try {
       // Check if code is valid and not expired
-      // Compare timestamps in UTC to avoid timezone issues
+      // Use DB's NOW() to avoid clock skew between Vercel and DB server
       const result = await client.query(
         `SELECT id FROM auth_codes
          WHERE email = $1
            AND code = $2
-           AND expires_at > $3::timestamptz
+           AND expires_at > NOW()
            AND used = FALSE
          ORDER BY created_at DESC
          LIMIT 1`,
-        [email, normalizedCode, nowUtc]
+        [email, normalizedCode]
       );
 
       if (result.rows.length === 0) {
         // Log debug info for troubleshooting
         const debugResult = await client.query(
           `SELECT id, email, code, expires_at, used,
-                  $2::timestamptz as current_time,
-                  expires_at > $2::timestamptz as is_not_expired
+                  NOW() as db_now,
+                  expires_at > NOW() as is_not_expired
            FROM auth_codes
            WHERE email = $1
            ORDER BY created_at DESC
            LIMIT 3`,
-          [email, nowUtc]
+          [email]
         );
         console.log("Code verification failed. Debug info:", {
           providedEmail: email,
           providedCode: normalizedCode,
-          currentUtcTime: nowUtc,
+          serverTime: new Date().toISOString(),
           recentCodes: debugResult.rows.map(r => ({
             id: r.id,
             storedCode: r.code,
             codeMatch: r.code === normalizedCode,
             expiresAt: r.expires_at,
-            currentTime: r.current_time,
+            dbNow: r.db_now,
             isNotExpired: r.is_not_expired,
             used: r.used
           }))
