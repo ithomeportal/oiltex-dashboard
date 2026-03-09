@@ -289,7 +289,7 @@ export default function ArgusPricingPage() {
             <div className="text-3xl font-bold">
               ${formatPrice(latest?.nymex_cma_td)}
             </div>
-            <div className="text-xs text-amber-200 mt-2">
+            <div className="text-sm text-amber-200 mt-2">
               Running avg settlement
             </div>
           </div>
@@ -300,7 +300,7 @@ export default function ArgusPricingPage() {
             <div className="text-3xl font-bold text-slate-800">
               {formatDiff(latest?.cma_diff_mtd)}
             </div>
-            <div className="text-xs text-slate-400 mt-2">
+            <div className="text-sm text-slate-400 mt-2">
               WTI diff to CMA Nymex
             </div>
           </div>
@@ -311,7 +311,7 @@ export default function ArgusPricingPage() {
             <div className="text-3xl font-bold text-green-600">
               {formatDiff(latest?.midland_diff_mtd)}
             </div>
-            <div className="text-xs text-slate-400 mt-2">
+            <div className="text-sm text-slate-400 mt-2">
               WTL Midland vs WTI Cushing
             </div>
           </div>
@@ -322,7 +322,7 @@ export default function ArgusPricingPage() {
             <div className="text-3xl font-bold">
               ${formatPrice(latest?.wtl_midland_wtd_avg)}
             </div>
-            <div className="text-xs text-emerald-200 mt-2">
+            <div className="text-sm text-emerald-200 mt-2">
               Wtd Avg (L: ${formatPrice(latest?.wtl_midland_low)} / H: ${formatPrice(latest?.wtl_midland_high)})
             </div>
           </div>
@@ -337,7 +337,7 @@ export default function ArgusPricingPage() {
                 ? formatPrice(estNetMtdMinusTransport)
                 : "--"}
             </div>
-            <div className="text-xs text-blue-200 mt-2">
+            <div className="text-sm text-blue-200 mt-2">
               {isWtlLease ? "WTL Midland" : "CMA TD + Diffs"} - ${transport.toFixed(2)} lease diff
             </div>
           </div>
@@ -366,10 +366,10 @@ export default function ArgusPricingPage() {
                     <div className="text-3xl font-bold text-orange-400">
                       ${buyPrice !== null ? formatPrice(buyPrice) : "--"}
                     </div>
-                    <div className="text-xs text-slate-500 mt-2">
+                    <div className="text-sm text-slate-500 mt-2">
                       CMA + Diffs - ${transport.toFixed(2)} transport (Exhibit A)
                     </div>
-                    <div className="text-xs text-slate-600 mt-1 font-mono">
+                    <div className="text-sm text-slate-600 mt-1 font-mono">
                       {profitData.devon.trading_days} trading days ({profitData.devon.period.start.slice(5)} to {profitData.devon.period.end.slice(5)})
                     </div>
                   </div>
@@ -384,10 +384,10 @@ export default function ArgusPricingPage() {
                     ? formatPrice(profitData.marathon.sell_price)
                     : "--"}
                 </div>
-                <div className="text-xs text-slate-500 mt-2">
+                <div className="text-sm text-slate-500 mt-2">
                   CMA - $0.25 + Diffs
                 </div>
-                <div className="text-xs text-slate-600 mt-1 font-mono">
+                <div className="text-sm text-slate-600 mt-1 font-mono">
                   {profitData.marathon.trading_days} days ({profitData.marathon.period.start.slice(5)} to {profitData.marathon.period.end.slice(5)})
                 </div>
               </div>
@@ -412,7 +412,7 @@ export default function ArgusPricingPage() {
                     }`}>
                       {margin !== null ? `${margin >= 0 ? "+" : ""}$${formatPrice(margin)}` : "--"}
                     </div>
-                    <div className="text-xs text-slate-500 mt-2">per bbl (Exhibit A rate)</div>
+                    <div className="text-sm text-slate-500 mt-2">per bbl (Exhibit A rate)</div>
                   </div>
                 );
               })()}
@@ -427,11 +427,11 @@ export default function ArgusPricingPage() {
                     ? profitData.freight.total_cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                     : "--"}
                 </div>
-                <div className="text-xs text-slate-500 mt-2">
+                <div className="text-sm text-slate-500 mt-2">
                   {profitData.freight.order_count} transport orders
                 </div>
                 {profitData.freight.cost_per_bbl !== null && (
-                  <div className="text-xs mt-1 font-mono flex items-center gap-2">
+                  <div className="text-sm mt-1 font-mono flex items-center gap-2">
                     <span className="text-violet-400">${profitData.freight.cost_per_bbl.toFixed(2)}/bbl</span>
                     <span className={`${profitData.freight.cost_per_bbl < transport ? "text-green-400" : "text-red-400"}`}>
                       ({profitData.freight.cost_per_bbl < transport ? "saves" : "costs"} ${Math.abs(transport - profitData.freight.cost_per_bbl).toFixed(2)} vs Exhibit A)
@@ -448,11 +448,11 @@ export default function ArgusPricingPage() {
                     ? profitData.volume.delivered_bbls.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                     : "--"}
                 </div>
-                <div className="text-xs text-slate-500 mt-2">
+                <div className="text-sm text-slate-500 mt-2">
                   {profitData.volume.ticket_count} tickets
                 </div>
                 {profitData.volume.shrinkage !== 0 && (
-                  <div className="text-xs text-yellow-500 mt-1 font-mono">
+                  <div className="text-sm text-yellow-500 mt-1 font-mono">
                     {profitData.volume.shrinkage > 0 ? "+" : ""}{profitData.volume.shrinkage.toFixed(1)} bbl vs net ({((profitData.volume.shrinkage / profitData.volume.net_barrels) * 100).toFixed(2)}%)
                   </div>
                 )}
@@ -497,12 +497,12 @@ export default function ArgusPricingPage() {
                             ? `${netProfit >= 0 ? "+" : "-"}$${Math.abs(netProfit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                             : "--"}
                         </div>
-                        <div className={`text-xs mt-2 ${netProfit !== null ? "text-white/60" : "text-slate-500"}`}>
+                        <div className={`text-sm mt-2 ${netProfit !== null ? "text-white/60" : "text-slate-500"}`}>
                           {formatMonthName(profitData.delivery_month)}
                           {netPerBbl !== null && ` | ${netPerBbl >= 0 ? "+" : ""}$${netPerBbl.toFixed(2)}/bbl`}
                         </div>
                       </div>
-                      <div className={`text-xs font-mono space-y-0.5 text-right ${netProfit !== null ? "text-white/50" : "text-slate-600"}`}>
+                      <div className={`text-sm font-mono space-y-0.5 text-right ${netProfit !== null ? "text-white/50" : "text-slate-600"}`}>
                         <div>Revenue: ${grossRevenue !== null ? grossRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "--"}</div>
                         <div>Oil cost: ${oilCost !== null ? oilCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "--"} (Devon - ${transport.toFixed(2)} Exhibit A)</div>
                         <div>Freight: ${actualFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (McLeod actual)</div>
