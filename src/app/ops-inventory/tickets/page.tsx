@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import DashboardLayout from "@/components/DashboardLayout";
 import type { OilTicket } from "@/lib/ticket-types";
 
@@ -53,23 +54,39 @@ function getAllMonths(startYear: number, startMonth: number): MonthOption[] {
 const ALL_MONTHS = getAllMonths(2025, 9);
 
 export default function TicketsPage() {
+  return (
+    <Suspense fallback={<DashboardLayout><div className="p-8 text-center text-slate-400">Loading...</div></DashboardLayout>}>
+      <TicketsPageContent />
+    </Suspense>
+  );
+}
+
+function TicketsPageContent() {
+  const searchParams = useSearchParams();
   const [tickets, setTickets] = useState<OilTicket[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const limit = 50;
 
-  // Default to current month
+  // Default to current month, but allow URL params to override
   const now = new Date();
   const defaultRange = getMonthRange(now.getFullYear(), now.getMonth());
+  const urlDateFrom = searchParams.get("dateFrom");
+  const urlDateTo = searchParams.get("dateTo");
+  const urlShipper = searchParams.get("shipper");
 
   // Filters
-  const [dateFrom, setDateFrom] = useState(defaultRange.from);
-  const [dateTo, setDateTo] = useState(defaultRange.to);
-  const [activeMonthKey, setActiveMonthKey] = useState(
-    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
-  );
-  const [shipper, setShipper] = useState("");
+  const [dateFrom, setDateFrom] = useState(urlDateFrom || defaultRange.from);
+  const [dateTo, setDateTo] = useState(urlDateTo || defaultRange.to);
+  const [activeMonthKey, setActiveMonthKey] = useState(() => {
+    if (urlDateFrom) {
+      // Extract YYYY-MM from the dateFrom param
+      return urlDateFrom.slice(0, 7);
+    }
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [shipper, setShipper] = useState(urlShipper || "");
   const [operator, setOperator] = useState("");
   const [county, setCounty] = useState("");
   const [state, setState] = useState("");

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/DashboardLayout";
 
 interface PriceData {
@@ -148,10 +149,30 @@ function formatDiffSigned(val: number | null | undefined): string {
   return `${val >= 0 ? "+" : ""}${val.toFixed(4)}`;
 }
 
+function getLaneMonthOptions(): Array<{ value: string; label: string }> {
+  const now = new Date();
+  const names = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const options: Array<{ value: string; label: string }> = [];
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    options.push({
+      value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+      label: `${names[d.getMonth()]} ${d.getFullYear()}`,
+    });
+  }
+  return options;
+}
+
 export default function Dashboard() {
+  const router = useRouter();
+  const laneMonthOptions = useMemo(() => getLaneMonthOptions(), []);
   const [prices, setPrices] = useState<LivePrices | null>(null);
   const [argusPricing, setArgusPricing] = useState<ArgusPricingLatest | null>(null);
   const [ticketLanes, setTicketLanes] = useState<WellBreakdown[]>([]);
+  const [laneMonth, setLaneMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
   const [loading, setLoading] = useState(false);
 
   const fetchPrices = useCallback(async () => {
@@ -195,11 +216,8 @@ export default function Dashboard() {
     }
   }, []);
 
-  const fetchTicketLanes = useCallback(async () => {
+  const fetchTicketLanes = useCallback(async (month: string) => {
     try {
-      // Current month in YYYY-MM format
-      const now = new Date();
-      const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
       const res = await fetch(`/api/ops-inventory/summary?month=${month}`);
       const json = await res.json();
       if (json.success && json.data?.wells) {
@@ -219,8 +237,8 @@ export default function Dashboard() {
   useEffect(() => {
     fetchPrices();
     fetchArgusPricing();
-    fetchTicketLanes();
-  }, [fetchPrices, fetchArgusPricing, fetchTicketLanes]);
+    fetchTicketLanes(laneMonth);
+  }, [fetchPrices, fetchArgusPricing, fetchTicketLanes, laneMonth]);
 
   // Latest market data
   const latestEIA = prices?.eia?.find((p) => p.value !== null);
@@ -617,96 +635,121 @@ export default function Dashboard() {
         </div>
 
         {/* Ticket Volume by Lane */}
-        {ticketLanes.length > 0 && (
-          <div className="bg-slate-900 rounded-lg border border-slate-700 mb-6">
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-700">
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Delivery Volume by Lane</span>
-                <span className="text-[10px] text-slate-500">
-                  {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-                </span>
-              </div>
-              <span className="text-[10px] text-slate-500 font-mono">
-                {ticketLanes.reduce((s, l) => s + l.ticket_count, 0)} tickets | {ticketLanes.reduce((s, l) => s + l.delivered_bbls, 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} bbls
-              </span>
+        <div className="bg-slate-900 rounded-lg border border-slate-700 mb-6">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-700">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Delivery Volume by Lane</span>
+              <select
+                value={laneMonth}
+                onChange={(e) => setLaneMonth(e.target.value)}
+                className="bg-slate-800 text-sm text-slate-300 border border-slate-600 rounded px-2 py-1 cursor-pointer hover:bg-slate-700 transition-colors"
+              >
+                {laneMonthOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
             </div>
-            <div className="p-4">
-              {(() => {
-                const lanes = ticketLanes;
-                const maxBbls = Math.max(...lanes.map((l) => l.delivered_bbls));
-                const chartW = 800;
-                const barH = 32;
-                const gap = 8;
-                const labelW = 200;
-                const valueW = 100;
-                const chartH = lanes.length * (barH + gap) + 10;
-                const barAreaW = chartW - labelW - valueW;
+            <span className="text-xs text-slate-500 font-mono">
+              {ticketLanes.reduce((s, l) => s + l.ticket_count, 0)} tickets | {ticketLanes.reduce((s, l) => s + l.delivered_bbls, 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} bbls
+            </span>
+          </div>
+          <div className="p-4">
+            {ticketLanes.length > 0 ? (() => {
+              const lanes = ticketLanes;
+              const maxBbls = Math.max(...lanes.map((l) => l.delivered_bbls));
+              const chartW = 800;
+              const barH = 36;
+              const gap = 10;
+              const labelW = 220;
+              const valueW = 120;
+              const chartH = lanes.length * (barH + gap) + 10;
+              const barAreaW = chartW - labelW - valueW;
 
-                return (
-                  <svg viewBox={`0 0 ${chartW} ${chartH}`} className="w-full" style={{ minHeight: lanes.length * 40 }}>
-                    {lanes.map((lane, i) => {
-                      const y = i * (barH + gap) + 5;
-                      const barW = maxBbls > 0 ? (lane.delivered_bbls / maxBbls) * barAreaW : 0;
-                      const shortName = lane.shipper_name.length > 28
-                        ? lane.shipper_name.slice(0, 26) + "..."
-                        : lane.shipper_name;
+              return (
+                <svg viewBox={`0 0 ${chartW} ${chartH}`} className="w-full" style={{ minHeight: lanes.length * 46 }}>
+                  {lanes.map((lane, i) => {
+                    const y = i * (barH + gap) + 5;
+                    const barW = maxBbls > 0 ? (lane.delivered_bbls / maxBbls) * barAreaW : 0;
+                    const shortName = lane.shipper_name.length > 28
+                      ? lane.shipper_name.slice(0, 26) + "..."
+                      : lane.shipper_name;
 
-                      return (
-                        <g key={lane.shipper_name}>
-                          {/* Lane name */}
+                    // Build ticket page URL with shipper filter and date range
+                    const [y2, m2] = laneMonth.split("-");
+                    const lastDay = new Date(parseInt(y2), parseInt(m2), 0).getDate();
+                    const ticketUrl = `/ops-inventory/tickets?shipper=${encodeURIComponent(lane.shipper_name)}&dateFrom=${laneMonth}-01&dateTo=${laneMonth}-${String(lastDay).padStart(2, "0")}`;
+
+                    return (
+                      <g
+                        key={lane.shipper_name}
+                        className="cursor-pointer"
+                        onClick={() => router.push(ticketUrl)}
+                      >
+                        {/* Hover background */}
+                        <rect
+                          x={0}
+                          y={y - 2}
+                          width={chartW}
+                          height={barH + 4}
+                          fill="transparent"
+                          className="hover:fill-slate-800/50 transition-colors"
+                          rx="4"
+                        />
+                        {/* Lane name */}
+                        <text
+                          x={labelW - 8}
+                          y={y + barH / 2 + 5}
+                          textAnchor="end"
+                          fontSize="13"
+                          fill="#94a3b8"
+                          fontFamily="monospace"
+                        >
+                          {shortName}
+                        </text>
+                        {/* Bar */}
+                        <rect
+                          x={labelW}
+                          y={y + 2}
+                          width={barW}
+                          height={barH - 4}
+                          rx="4"
+                          fill="#3b82f6"
+                          opacity="0.8"
+                        />
+                        {/* Ticket count badge on bar */}
+                        {barW > 50 && (
                           <text
-                            x={labelW - 8}
-                            y={y + barH / 2 + 4}
-                            textAnchor="end"
-                            fontSize="11"
-                            fill="#94a3b8"
-                            fontFamily="monospace"
-                          >
-                            {shortName}
-                          </text>
-                          {/* Bar */}
-                          <rect
-                            x={labelW}
-                            y={y + 2}
-                            width={barW}
-                            height={barH - 4}
-                            rx="4"
-                            fill="#3b82f6"
-                            opacity="0.8"
-                          />
-                          {/* Ticket count badge on bar */}
-                          {barW > 40 && (
-                            <text
-                              x={labelW + 8}
-                              y={y + barH / 2 + 4}
-                              fontSize="10"
-                              fill="white"
-                              fontWeight="bold"
-                              fontFamily="monospace"
-                            >
-                              {lane.ticket_count} tix
-                            </text>
-                          )}
-                          {/* Barrel value */}
-                          <text
-                            x={labelW + barW + 8}
-                            y={y + barH / 2 + 4}
-                            fontSize="11"
-                            fill="#e2e8f0"
+                            x={labelW + 10}
+                            y={y + barH / 2 + 5}
+                            fontSize="12"
+                            fill="white"
                             fontWeight="bold"
                             fontFamily="monospace"
                           >
-                            {lane.delivered_bbls.toLocaleString(undefined, { maximumFractionDigits: 0 })} bbl
+                            {lane.ticket_count} tix
                           </text>
-                        </g>
-                      );
-                    })}
-                  </svg>
-                );
-              })()}
-            </div>
+                        )}
+                        {/* Barrel value */}
+                        <text
+                          x={labelW + barW + 10}
+                          y={y + barH / 2 + 5}
+                          fontSize="13"
+                          fill="#e2e8f0"
+                          fontWeight="bold"
+                          fontFamily="monospace"
+                        >
+                          {lane.delivered_bbls.toLocaleString(undefined, { maximumFractionDigits: 0 })} bbl
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              );
+            })() : (
+              <div className="text-center text-sm text-slate-500 py-8">No tickets for this month</div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Footer */}
         {prices?.fetchedAt && (
