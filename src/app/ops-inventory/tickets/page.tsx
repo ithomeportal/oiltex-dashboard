@@ -24,23 +24,33 @@ function getMonthRange(year: number, month: number): { from: string; to: string 
   return { from, to };
 }
 
-function getMonthButtons(): Array<{ label: string; year: number; month: number; key: string }> {
+interface MonthOption {
+  label: string;
+  year: number;
+  month: number;
+  key: string;
+}
+
+function getAllMonths(startYear: number, startMonth: number): MonthOption[] {
   const now = new Date();
-  const buttons: Array<{ label: string; year: number; month: number; key: string }> = [];
+  const months: MonthOption[] = [];
   const names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-  // Show 6 months: current + 5 previous
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    buttons.push({
+  const d = new Date(startYear, startMonth, 1);
+  while (d <= now) {
+    months.push({
       label: `${names[d.getMonth()]} ${d.getFullYear()}`,
       year: d.getFullYear(),
       month: d.getMonth(),
       key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
     });
+    d.setMonth(d.getMonth() + 1);
   }
-  return buttons;
+  return months.reverse(); // newest first
 }
+
+// Start from Oct 2025 (first data month)
+const ALL_MONTHS = getAllMonths(2025, 9);
 
 export default function TicketsPage() {
   const [tickets, setTickets] = useState<OilTicket[]>([]);
@@ -65,7 +75,8 @@ export default function TicketsPage() {
   const [state, setState] = useState("");
   const [search, setSearch] = useState("");
 
-  const monthButtons = getMonthButtons();
+  const recentMonths = ALL_MONTHS.slice(0, 3);
+  const olderMonths = ALL_MONTHS.slice(3);
 
   const selectMonth = (year: number, month: number, key: string) => {
     const range = getMonthRange(year, month);
@@ -151,7 +162,7 @@ export default function TicketsPage() {
           {/* Month Quick Filter */}
           <div className="flex items-center gap-2 mb-4">
             <span className="text-xs font-medium text-slate-500 uppercase tracking-wider mr-1">Month</span>
-            {monthButtons.map((mb) => (
+            {recentMonths.map((mb) => (
               <button
                 key={mb.key}
                 onClick={() => selectMonth(mb.year, mb.month, mb.key)}
@@ -164,6 +175,31 @@ export default function TicketsPage() {
                 {mb.label}
               </button>
             ))}
+            {olderMonths.length > 0 && (
+              <select
+                value={olderMonths.some((m) => m.key === activeMonthKey) ? activeMonthKey : ""}
+                onChange={(e) => {
+                  const selected = olderMonths.find((m) => m.key === e.target.value);
+                  if (selected) selectMonth(selected.year, selected.month, selected.key);
+                }}
+                className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors cursor-pointer ${
+                  olderMonths.some((m) => m.key === activeMonthKey)
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-500 border border-slate-300 hover:bg-slate-50"
+                }`}
+              >
+                <option value="" disabled>
+                  {olderMonths.some((m) => m.key === activeMonthKey)
+                    ? olderMonths.find((m) => m.key === activeMonthKey)?.label
+                    : "Older..."}
+                </option>
+                {olderMonths.map((mb) => (
+                  <option key={mb.key} value={mb.key}>
+                    {mb.label}
+                  </option>
+                ))}
+              </select>
+            )}
             <button
               onClick={clearFilters}
               className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
