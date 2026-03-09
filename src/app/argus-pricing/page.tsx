@@ -453,19 +453,24 @@ export default function ArgusPricingPage() {
 
               {/* Net Profit (with actual freight) */}
               {(() => {
-                const grossRevenue = profitData.marathon.sell_price !== null && profitData.volume.delivered_bbls > 0
-                  ? profitData.marathon.sell_price * profitData.volume.delivered_bbls
+                const bbls = profitData.volume.delivered_bbls;
+                const grossRevenue = profitData.marathon.sell_price !== null && bbls > 0
+                  ? profitData.marathon.sell_price * bbls
                   : null;
-                const buyPriceNoTransport = profitData.devon.buy_price_before_transport;
-                const grossCost = buyPriceNoTransport !== null && profitData.volume.delivered_bbls > 0
-                  ? buyPriceNoTransport * profitData.volume.delivered_bbls
+                // Devon charges buy_price MINUS Exhibit A transport (the credit is baked into their invoice)
+                const devonInvoicePerBbl = profitData.devon.buy_price_before_transport !== null
+                  ? profitData.devon.buy_price_before_transport - transport
+                  : null;
+                const oilCost = devonInvoicePerBbl !== null && bbls > 0
+                  ? devonInvoicePerBbl * bbls
                   : null;
                 const actualFreight = profitData.freight.total_cost;
-                const netProfit = grossRevenue !== null && grossCost !== null
-                  ? grossRevenue - grossCost - actualFreight
+                // Net = Marathon revenue - Devon invoice - Actual freight
+                const netProfit = grossRevenue !== null && oilCost !== null
+                  ? grossRevenue - oilCost - actualFreight
                   : null;
-                const netPerBbl = netProfit !== null && profitData.volume.delivered_bbls > 0
-                  ? netProfit / profitData.volume.delivered_bbls
+                const netPerBbl = netProfit !== null && bbls > 0
+                  ? netProfit / bbls
                   : null;
                 return (
                   <div className={`rounded-xl p-5 col-span-1 md:col-span-2 ${
@@ -492,8 +497,8 @@ export default function ArgusPricingPage() {
                       </div>
                       <div className={`text-xs font-mono space-y-0.5 text-right ${netProfit !== null ? "text-white/50" : "text-slate-600"}`}>
                         <div>Revenue: ${grossRevenue !== null ? grossRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "--"}</div>
-                        <div>Oil cost: ${grossCost !== null ? grossCost.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "--"}</div>
-                        <div>Freight: ${actualFreight.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                        <div>Oil cost: ${oilCost !== null ? oilCost.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "--"} (Devon - ${transport.toFixed(2)} Exhibit A)</div>
+                        <div>Freight: ${actualFreight.toLocaleString(undefined, { maximumFractionDigits: 0 })} (McLeod actual)</div>
                       </div>
                     </div>
                   </div>
