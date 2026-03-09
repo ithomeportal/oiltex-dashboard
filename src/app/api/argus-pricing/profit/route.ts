@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
+import { queryMcLeod } from "@/lib/mcleod-db";
 
 // GET /api/argus-pricing/profit?delivery_month=2026-02
 // Calculates Buy (Devon) / Sell (Marathon) / Profit for a given delivery month
@@ -78,6 +79,20 @@ export async function GET(request: NextRequest) {
       [devonStart, devonEnd]
     );
 
+    // Actual freight costs from McLeod transport orders
+    const freightResult = await queryMcLeod(
+      `SELECT
+         COUNT(*) as order_count,
+         COALESCE(SUM(total_charge), 0) as total_freight,
+         COALESCE(SUM(freight_charge), 0) as freight_only,
+         COALESCE(SUM(other_charge), 0) as other_charges,
+         COALESCE(SUM(total_carrier_pay), 0) as carrier_pay
+       FROM public.mcleod_gld_budget_report_v4
+       WHERE customer_name ILIKE '%OILTEX%'
+       AND ordered_date >= $1 AND ordered_date <= $2`,
+      [devonStart, devonEnd]
+    );
+
     const marathonCmaDiff = marathonCmaResult.rows[0].avg_val
       ? parseFloat(marathonCmaResult.rows[0].avg_val)
       : null;
@@ -97,6 +112,11 @@ export async function GET(request: NextRequest) {
     const deliveredBbls = parseFloat(volumeResult.rows[0].delivered_bbls);
     const netBarrels = parseFloat(volumeResult.rows[0].net_barrels);
     const ticketCount = parseInt(volumeResult.rows[0].ticket_count, 10);
+
+    const freightRow = freightResult.rows[0];
+    const totalFreight = parseFloat(freightRow.total_freight as string);
+    const freightOrders = parseInt(freightRow.order_count as string, 10);
+    const freightPerBbl = deliveredBbls > 0 ? totalFreight / deliveredBbls : null;
 
     const fixedDeduction = 0.25;
 
@@ -150,6 +170,14 @@ export async function GET(request: NextRequest) {
           delivered_bbls: deliveredBbls,
           net_barrels: netBarrels,
           shrinkage: netBarrels - deliveredBbls,
+        },
+        freight: {
+          order_count: freightOrders,
+          total_cost: totalFreight,
+          freight_only: parseFloat(freightRow.freight_only as string),
+          other_charges: parseFloat(freightRow.other_charges as string),
+          carrier_pay: parseFloat(freightRow.carrier_pay as string),
+          cost_per_bbl: freightPerBbl,
         },
       },
     });

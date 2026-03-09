@@ -45,6 +45,14 @@ interface ProfitData {
     net_barrels: number;
     shrinkage: number;
   };
+  freight: {
+    order_count: number;
+    total_cost: number;
+    freight_only: number;
+    other_charges: number;
+    carrier_pay: number;
+    cost_per_bbl: number | null;
+  };
 }
 
 interface PricingApiResponse {
@@ -339,7 +347,7 @@ export default function ArgusPricingPage() {
                 </span>
               )}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
               {/* Buy Price (Devon) */}
               {(() => {
                 const buyPrice = profitData.devon.buy_price_before_transport !== null
@@ -352,10 +360,10 @@ export default function ArgusPricingPage() {
                       ${buyPrice !== null ? formatPrice(buyPrice) : "--"}
                     </div>
                     <div className="text-xs text-slate-500 mt-2">
-                      CMA + Diffs - ${transport.toFixed(2)} transport
+                      CMA + Diffs - ${transport.toFixed(2)} transport (Exhibit A)
                     </div>
                     <div className="text-xs text-slate-600 mt-1 font-mono">
-                      {profitData.devon.trading_days} trading days
+                      {profitData.devon.trading_days} trading days ({profitData.devon.period.start.slice(5)} to {profitData.devon.period.end.slice(5)})
                     </div>
                   </div>
                 );
@@ -377,7 +385,7 @@ export default function ArgusPricingPage() {
                 </div>
               </div>
 
-              {/* Gross Margin */}
+              {/* Contract Margin (Exhibit A transport) */}
               {(() => {
                 const buyPrice = profitData.devon.buy_price_before_transport !== null
                   ? profitData.devon.buy_price_before_transport - transport
@@ -391,19 +399,39 @@ export default function ArgusPricingPage() {
                       ? "bg-green-500/10 border-green-500/30"
                       : "bg-red-500/10 border-red-500/30"
                   }`}>
-                    <div className="text-sm text-slate-400 mb-1">Net Margin</div>
+                    <div className="text-sm text-slate-400 mb-1">Contract Margin</div>
                     <div className={`text-3xl font-bold ${
                       margin !== null && margin >= 0 ? "text-green-400" : "text-red-400"
                     }`}>
                       {margin !== null ? `${margin >= 0 ? "+" : ""}$${formatPrice(margin)}` : "--"}
                     </div>
-                    <div className="text-xs text-slate-500 mt-2">per barrel</div>
-                    <div className="text-xs text-slate-600 mt-1 font-mono">
-                      Sell - Buy (incl transport)
-                    </div>
+                    <div className="text-xs text-slate-500 mt-2">per bbl (Exhibit A rate)</div>
                   </div>
                 );
               })()}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Actual Freight (McLeod) */}
+              <div className="bg-slate-800 rounded-xl border border-slate-700 p-5">
+                <div className="text-sm text-slate-400 mb-1">Actual Freight (McLeod)</div>
+                <div className="text-3xl font-bold text-violet-400">
+                  ${profitData.freight.total_cost > 0
+                    ? profitData.freight.total_cost.toLocaleString(undefined, { maximumFractionDigits: 0 })
+                    : "--"}
+                </div>
+                <div className="text-xs text-slate-500 mt-2">
+                  {profitData.freight.order_count} transport orders
+                </div>
+                {profitData.freight.cost_per_bbl !== null && (
+                  <div className="text-xs mt-1 font-mono flex items-center gap-2">
+                    <span className="text-violet-400">${profitData.freight.cost_per_bbl.toFixed(2)}/bbl</span>
+                    <span className={`${profitData.freight.cost_per_bbl < transport ? "text-green-400" : "text-red-400"}`}>
+                      ({profitData.freight.cost_per_bbl < transport ? "saves" : "costs"} ${Math.abs(transport - profitData.freight.cost_per_bbl).toFixed(2)} vs Exhibit A)
+                    </span>
+                  </div>
+                )}
+              </div>
 
               {/* Delivered Volume */}
               <div className="bg-slate-800 rounded-xl border border-slate-700 p-5">
@@ -418,83 +446,59 @@ export default function ArgusPricingPage() {
                 </div>
                 {profitData.volume.shrinkage !== 0 && (
                   <div className="text-xs text-yellow-500 mt-1 font-mono">
-                    {profitData.volume.shrinkage > 0 ? "+" : ""}{profitData.volume.shrinkage.toFixed(1)} vs net
+                    {profitData.volume.shrinkage > 0 ? "+" : ""}{profitData.volume.shrinkage.toFixed(1)} bbl vs net ({((profitData.volume.shrinkage / profitData.volume.net_barrels) * 100).toFixed(2)}%)
                   </div>
                 )}
               </div>
 
-              {/* Total Profit */}
+              {/* Net Profit (with actual freight) */}
               {(() => {
-                const buyPrice = profitData.devon.buy_price_before_transport !== null
-                  ? profitData.devon.buy_price_before_transport - transport
+                const grossRevenue = profitData.marathon.sell_price !== null && profitData.volume.delivered_bbls > 0
+                  ? profitData.marathon.sell_price * profitData.volume.delivered_bbls
                   : null;
-                const margin = buyPrice !== null && profitData.marathon.sell_price !== null
-                  ? profitData.marathon.sell_price - buyPrice
+                const buyPriceNoTransport = profitData.devon.buy_price_before_transport;
+                const grossCost = buyPriceNoTransport !== null && profitData.volume.delivered_bbls > 0
+                  ? buyPriceNoTransport * profitData.volume.delivered_bbls
                   : null;
-                const totalProfit = margin !== null && profitData.volume.delivered_bbls > 0
-                  ? margin * profitData.volume.delivered_bbls
+                const actualFreight = profitData.freight.total_cost;
+                const netProfit = grossRevenue !== null && grossCost !== null
+                  ? grossRevenue - grossCost - actualFreight
+                  : null;
+                const netPerBbl = netProfit !== null && profitData.volume.delivered_bbls > 0
+                  ? netProfit / profitData.volume.delivered_bbls
                   : null;
                 return (
-                  <div className={`rounded-xl p-5 ${
-                    totalProfit !== null && totalProfit >= 0
+                  <div className={`rounded-xl p-5 col-span-1 md:col-span-2 ${
+                    netProfit !== null && netProfit >= 0
                       ? "bg-gradient-to-br from-green-600 to-green-700 text-white"
-                      : totalProfit !== null
+                      : netProfit !== null
                         ? "bg-gradient-to-br from-red-600 to-red-700 text-white"
                         : "bg-slate-800 border border-slate-700"
                   }`}>
-                    <div className={`text-sm mb-1 ${totalProfit !== null ? "text-white/80" : "text-slate-400"}`}>
-                      Total Profit
-                    </div>
-                    <div className="text-3xl font-bold">
-                      {totalProfit !== null
-                        ? `${totalProfit >= 0 ? "+" : "-"}$${Math.abs(totalProfit).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-                        : "--"}
-                    </div>
-                    <div className={`text-xs mt-2 ${totalProfit !== null ? "text-white/60" : "text-slate-500"}`}>
-                      {formatMonthName(profitData.delivery_month)}
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className={`text-sm mb-1 ${netProfit !== null ? "text-white/80" : "text-slate-400"}`}>
+                          Net Profit (Actual Freight)
+                        </div>
+                        <div className="text-3xl font-bold">
+                          {netProfit !== null
+                            ? `${netProfit >= 0 ? "+" : "-"}$${Math.abs(netProfit).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                            : "--"}
+                        </div>
+                        <div className={`text-xs mt-2 ${netProfit !== null ? "text-white/60" : "text-slate-500"}`}>
+                          {formatMonthName(profitData.delivery_month)}
+                          {netPerBbl !== null && ` | ${netPerBbl >= 0 ? "+" : ""}$${netPerBbl.toFixed(2)}/bbl`}
+                        </div>
+                      </div>
+                      <div className={`text-xs font-mono space-y-0.5 text-right ${netProfit !== null ? "text-white/50" : "text-slate-600"}`}>
+                        <div>Revenue: ${grossRevenue !== null ? grossRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "--"}</div>
+                        <div>Oil cost: ${grossCost !== null ? grossCost.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "--"}</div>
+                        <div>Freight: ${actualFreight.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                      </div>
                     </div>
                   </div>
                 );
               })()}
-
-              {/* Formula Breakdown mini */}
-              <div className="bg-slate-800 rounded-xl border border-slate-700 p-5">
-                <div className="text-sm text-slate-400 mb-2">Delta Breakdown</div>
-                <div className="space-y-1 text-xs font-mono">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Marathon diffs</span>
-                    <span className="text-cyan-400">
-                      +{((profitData.marathon.cma_diff_avg ?? 0) + (profitData.marathon.wti_midland_diff_avg ?? 0)).toFixed(4)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Devon diffs</span>
-                    <span className="text-orange-400">
-                      -{((profitData.devon.cma_diff_avg ?? 0) + (profitData.devon.wti_midland_diff_avg ?? 0)).toFixed(4)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Fixed deduction</span>
-                    <span className="text-red-400">-0.2500</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Transport credit</span>
-                    <span className="text-green-400">+{transport.toFixed(4)}</span>
-                  </div>
-                  <div className="border-t border-slate-700 pt-1 flex justify-between font-bold">
-                    <span className="text-slate-400">Net $/bbl</span>
-                    <span className={
-                      profitData.net_delta_before_transport !== null &&
-                      profitData.net_delta_before_transport + transport >= 0
-                        ? "text-green-400" : "text-red-400"
-                    }>
-                      {profitData.net_delta_before_transport !== null
-                        ? `${(profitData.net_delta_before_transport + transport) >= 0 ? "+" : ""}${(profitData.net_delta_before_transport + transport).toFixed(4)}`
-                        : "--"}
-                    </span>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         )}
