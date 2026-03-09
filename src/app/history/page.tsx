@@ -233,15 +233,16 @@ export default function HistoryPage() {
                   {dates.slice(0, daysToShow).map((date, i) => {
                     const weekend = isWeekend(date);
 
-                    // WTI Index: prefer EIA, fallback to FRED, then NYMEX settle
+                    // WTI Index: prefer EIA, fallback to FRED, NYMEX settle, Yahoo CL, chart export
                     const getWtiIndex = () => {
                       const eiaVal = eiaMap.get(date);
                       if (eiaVal !== undefined && eiaVal !== null) return { value: eiaVal, isFillForward: false };
                       const fredVal = fredMap.get(date);
                       if (fredVal !== undefined && fredVal !== null) return { value: fredVal, isFillForward: false };
-                      // Fallback to NYMEX settlement (same underlying WTI Cushing price)
                       const nymexVal = nymexMap.get(date);
                       if (nymexVal !== undefined && nymexVal !== null) return { value: nymexVal, isFillForward: false };
+                      const yahooVal = futuresMap.get(date);
+                      if (yahooVal !== undefined && yahooVal !== null) return { value: yahooVal, isFillForward: false };
                       const chartVal = chartExportMap.get(date);
                       if (chartVal !== undefined && chartVal !== null) return { value: chartVal, isFillForward: false };
                       if (viewMode === "calendar") {
