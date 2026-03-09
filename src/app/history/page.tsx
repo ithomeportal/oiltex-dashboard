@@ -260,30 +260,30 @@ export default function HistoryPage() {
                     const eiaData = viewMode === "calendar"
                       ? getPriceWithFillForward(date, eiaMap, dates)
                       : { value: eiaMap.get(date) ?? null, isFillForward: false };
-                    // WTI Futures: prefer Yahoo CL, fallback to NYMEX settle
+                    // WTI Futures: prefer NYMEX settle, fallback to Yahoo CL
                     const getFuturesData = () => {
-                      const yahooVal = futuresMap.get(date);
-                      if (yahooVal !== undefined && yahooVal !== null) return { value: yahooVal, isFillForward: false };
                       const nymexVal = nymexMap.get(date);
                       if (nymexVal !== undefined && nymexVal !== null) return { value: nymexVal, isFillForward: false };
+                      const yahooVal = futuresMap.get(date);
+                      if (yahooVal !== undefined && yahooVal !== null) return { value: yahooVal, isFillForward: false };
                       if (viewMode === "calendar") {
-                        const ff = getPriceWithFillForward(date, futuresMap, dates);
+                        const ff = getPriceWithFillForward(date, nymexMap, dates);
                         if (ff.value !== null) return ff;
-                        return getPriceWithFillForward(date, nymexMap, dates);
+                        return getPriceWithFillForward(date, futuresMap, dates);
                       }
                       return { value: null, isFillForward: false };
                     };
                     const futuresData = getFuturesData();
-                    // Midland Diff: prefer Yahoo WTT, fallback to Argus WTI Midland
+                    // Midland Diff: prefer Argus WTI Midland, fallback to Yahoo WTT
                     const getMidlandData = () => {
-                      const yahooVal = midlandMap.get(date);
-                      if (yahooVal !== undefined && yahooVal !== null) return { value: yahooVal, isFillForward: false };
                       const argusVal = argusMidlandMap.get(date);
                       if (argusVal !== undefined && argusVal !== null) return { value: argusVal, isFillForward: false };
+                      const yahooVal = midlandMap.get(date);
+                      if (yahooVal !== undefined && yahooVal !== null) return { value: yahooVal, isFillForward: false };
                       if (viewMode === "calendar") {
-                        const ff = getPriceWithFillForward(date, midlandMap, dates);
+                        const ff = getPriceWithFillForward(date, argusMidlandMap, dates);
                         if (ff.value !== null) return ff;
-                        return getPriceWithFillForward(date, argusMidlandMap, dates);
+                        return getPriceWithFillForward(date, midlandMap, dates);
                       }
                       return { value: null, isFillForward: false };
                     };
@@ -377,11 +377,11 @@ export default function HistoryPage() {
           <div className="mt-6 p-4 bg-slate-50 rounded-lg">
             <h3 className="text-sm font-medium text-slate-700 mb-2">Data Sources</h3>
             <ul className="text-xs text-slate-500 space-y-1">
-              <li><strong>WTI Index</strong> - Consolidated reference price (EIA → FRED → NYMEX Settle fallback)</li>
+              <li><strong>WTI Index</strong> - Consolidated reference price (EIA → FRED → NYMEX Settle → Yahoo CL)</li>
               <li><strong>WTI Spot (EIA)</strong> - U.S. Energy Information Administration RWTC series</li>
               <li><strong>NYMEX Settle</strong> - NYMEX WTI settlement price (Argus historical + imported files)</li>
-              <li><strong>WTI Futures (CL)</strong> - CME NYMEX front-month (Yahoo → NYMEX Settle fallback)</li>
-              <li><strong>Midland Diff</strong> - WTI Midland vs WTI differential (Yahoo WTT → Argus fallback)</li>
+              <li><strong>WTI Futures (CL)</strong> - CME NYMEX front-month (NYMEX Settle → Yahoo CL fallback)</li>
+              <li><strong>Midland Diff</strong> - WTI Midland vs WTI differential (Argus → Yahoo WTT fallback)</li>
               <li><strong>Est. Net Price</strong> - (NYMEX Settle or Futures) + Midland Diff - $2.50 Transport</li>
             </ul>
             {viewMode === "calendar" && (
