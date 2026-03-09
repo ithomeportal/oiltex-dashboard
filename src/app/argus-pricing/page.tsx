@@ -497,12 +497,12 @@ export default function ArgusPricingPage() {
                             ? `${netProfit >= 0 ? "+" : "-"}$${Math.abs(netProfit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                             : "--"}
                         </div>
-                        <div className={`text-sm mt-2 ${netProfit !== null ? "text-white/60" : "text-slate-500"}`}>
+                        <div className={`text-sm mt-2 ${netProfit !== null ? "text-gray-800" : "text-slate-500"}`}>
                           {formatMonthName(profitData.delivery_month)}
                           {netPerBbl !== null && ` | ${netPerBbl >= 0 ? "+" : ""}$${netPerBbl.toFixed(2)}/bbl`}
                         </div>
                       </div>
-                      <div className={`text-sm font-mono space-y-0.5 text-right ${netProfit !== null ? "text-white/50" : "text-slate-600"}`}>
+                      <div className={`text-sm font-mono space-y-0.5 text-right ${netProfit !== null ? "text-gray-800" : "text-slate-600"}`}>
                         <div>Revenue: ${grossRevenue !== null ? grossRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "--"}</div>
                         <div>Oil cost: ${oilCost !== null ? oilCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "--"} (Devon - ${transport.toFixed(2)} Exhibit A)</div>
                         <div>Freight: ${actualFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (McLeod actual)</div>
