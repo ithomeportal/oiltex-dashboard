@@ -126,14 +126,16 @@ export default function ArgusPricingPage() {
   const [data, setData] = useState<PricingApiResponse["data"] | null>(null);
   const [meta, setMeta] = useState<PricingApiResponse["meta"] | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(getDefaultContractMonth());
-  const [selectedLease, setSelectedLease] = useState("BFDU 52H/56H");
+  const [selectedLease, setSelectedLease] = useState("ALL");
   const [transportCost, setTransportCost] = useState("2.26");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [profitData, setProfitData] = useState<ProfitData | null>(null);
 
-  const activeLease = LEASE_DIFFERENTIALS.find((l) => l.name === selectedLease) || LEASE_DIFFERENTIALS[1];
+  const activeLease = selectedLease === "ALL"
+    ? { name: "ALL Leases", county: "", diff: 2.26, base: "WTI" as const }
+    : LEASE_DIFFERENTIALS.find((l) => l.name === selectedLease) || LEASE_DIFFERENTIALS[1];
 
   const fetchData = useCallback(
     async (month: string, p: number) => {
@@ -240,11 +242,16 @@ export default function ArgusPricingPage() {
                 value={selectedLease}
                 onChange={(e) => {
                   setSelectedLease(e.target.value);
-                  const lease = LEASE_DIFFERENTIALS.find((l) => l.name === e.target.value);
-                  if (lease) setTransportCost(lease.diff.toFixed(2));
+                  if (e.target.value === "ALL") {
+                    setTransportCost("2.26");
+                  } else {
+                    const lease = LEASE_DIFFERENTIALS.find((l) => l.name === e.target.value);
+                    if (lease) setTransportCost(lease.diff.toFixed(2));
+                  }
                 }}
                 className="bg-slate-700 text-white border border-slate-600 rounded-lg px-3 py-2 text-sm"
               >
+                <option value="ALL">ALL Leases</option>
                 {LEASE_DIFFERENTIALS.map((l) => (
                   <option key={l.name} value={l.name}>
                     {l.name} ({l.base})
@@ -741,7 +748,7 @@ export default function ArgusPricingPage() {
                           <line x1={pX} y1={y} x2={chartW - 15} y2={y} stroke="#1e293b" strokeWidth="1" />
                           {r % 0.5 === 0 && (
                             <text x={pX - 4} y={y + 3} textAnchor="end" fontSize="8" fill="#64748b" fontFamily="monospace">
-                              ${val.toFixed(0)}
+                              ${val.toFixed(2)}
                             </text>
                           )}
                         </g>
