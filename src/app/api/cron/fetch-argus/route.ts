@@ -51,8 +51,8 @@ export async function GET(request: Request) {
   try {
     await initDatabase();
 
-    // Fetch recent Argus emails with PDF attachments (last 4 days for resilience)
-    const attachments = await fetchArgusReportAttachments(4);
+    // Fetch recent Argus emails with PDF attachments (last 7 days for resilience)
+    const attachments = await fetchArgusReportAttachments(7);
 
     await logCron("fetch-argus", "fetched_emails", `Found ${attachments.length} attachments`, {
       filenames: attachments.map((a) => a.filename),
