@@ -33,23 +33,29 @@ function transformDbPrices(rows: Array<{ date: string; source: string; price_typ
       priceType: row.price_type,
     };
 
-    if (row.source === "EIA") {
+    // Normalize for case-insensitive comparison
+    const srcUpper = row.source.toUpperCase();
+    const ptUpper = row.price_type.toUpperCase();
+    // Handle prefixed price_types like "ARGUS/WTI_MIDLAND_DIFF"
+    const ptNorm = ptUpper.includes("/") ? ptUpper.split("/").pop()! : ptUpper;
+
+    if (srcUpper === "EIA") {
       eia.push(priceData);
-    } else if (row.source === "FRED") {
+    } else if (srcUpper === "FRED") {
       fred.push(priceData);
-    } else if (row.source === "YAHOO" && row.price_type === "WTI_FUTURES_CL") {
+    } else if (srcUpper === "YAHOO" && ptNorm === "WTI_FUTURES_CL") {
       yahooFutures.push(priceData);
-    } else if (row.source === "YAHOO" && row.price_type === "WTI_MIDLAND_DIFF") {
+    } else if (srcUpper === "YAHOO" && ptNorm === "WTI_MIDLAND_DIFF") {
       yahooMidland.push(priceData);
-    } else if (row.source === "NYMEX" || row.source === "NYMEX_EIA") {
+    } else if (srcUpper === "NYMEX" || srcUpper === "NYMEX_EIA") {
       nymex.push(priceData);
-    } else if (row.source === "CHART_EXPORT") {
+    } else if (srcUpper === "CHART_EXPORT") {
       chartExport.push(priceData);
-    } else if (row.source === "INVESTING_COM") {
+    } else if (srcUpper === "INVESTING_COM") {
       investingCom.push(priceData);
-    } else if (row.source === "ARGUS" && row.price_type === "WTI_HOUSTON_WTD_AVG") {
+    } else if (srcUpper === "ARGUS" && ptNorm === "WTI_HOUSTON_WTD_AVG") {
       argusHouston.push(priceData);
-    } else if (row.source === "ARGUS" && row.price_type === "WTI_MIDLAND_DIFF") {
+    } else if (srcUpper === "ARGUS" && ptNorm === "WTI_MIDLAND_DIFF") {
       argusMidland.push(priceData);
     }
   }

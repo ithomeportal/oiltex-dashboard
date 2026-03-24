@@ -182,11 +182,33 @@ export async function getLatestPrices(days: number = 30) {
   const client = await pool.connect();
   try {
     const result = await client.query(
-      `SELECT date, source, price_type, value, unit
-       FROM oil_prices
-       WHERE date >= CURRENT_DATE - INTERVAL '1 day' * $1
-         AND date <= CURRENT_DATE
-       ORDER BY date DESC, source, price_type`,
+      `SELECT date, source, price_type, value, unit FROM (
+        -- Primary: oil_prices table
+        SELECT date, source, price_type, value, unit
+        FROM oil_prices
+        WHERE date >= CURRENT_DATE - INTERVAL '1 day' * $1
+          AND date <= CURRENT_DATE
+
+        UNION ALL
+
+        -- Backfill: argus_pricing midland diff for dates not in oil_prices
+        SELECT ap.report_date AS date,
+               'ARGUS' AS source,
+               'WTI_MIDLAND_DIFF' AS price_type,
+               ap.midland_diff_daily AS value,
+               '$/BBL' AS unit
+        FROM argus_pricing ap
+        WHERE ap.report_date >= CURRENT_DATE - INTERVAL '1 day' * $1
+          AND ap.report_date <= CURRENT_DATE
+          AND ap.midland_diff_daily IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM oil_prices op
+            WHERE op.date = ap.report_date
+              AND op.source = 'ARGUS'
+              AND op.price_type = 'WTI_MIDLAND_DIFF'
+          )
+      ) combined
+      ORDER BY date DESC, source, price_type`,
       [days]
     );
     return result.rows;
