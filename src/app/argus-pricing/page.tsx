@@ -185,6 +185,47 @@ export default function ArgusPricingPage() {
     fetchProfit(selectedMonth);
   }, [selectedMonth, page, fetchData, fetchProfit]);
 
+  const downloadCsv = useCallback(async () => {
+    if (!selectedMonth) return;
+    try {
+      const res = await fetch(`/api/argus-pricing?month=${selectedMonth}&page=1&limit=999`);
+      const json: PricingApiResponse = await res.json();
+      if (!json.success || !json.data.rows.length) return;
+
+      const headers = [
+        "Date", "NYMEX CMA TD", "CMA Diff Daily", "CMA Diff MTD",
+        "Midland Diff Daily", "Midland Diff MTD", "Est Net Daily", "Est Net MTD",
+        "WTL Midland Low", "WTL Midland High", "WTL Midland Wtd Avg", "Confidence"
+      ];
+      const csvRows = [headers.join(",")];
+      for (const row of json.data.rows) {
+        csvRows.push([
+          row.report_date.split("T")[0],
+          row.nymex_cma_td ?? "",
+          row.cma_diff_daily ?? "",
+          row.cma_diff_mtd ?? "",
+          row.midland_diff_daily ?? "",
+          row.midland_diff_mtd ?? "",
+          row.est_net_daily ?? "",
+          row.est_net_mtd ?? "",
+          row.wtl_midland_low ?? "",
+          row.wtl_midland_high ?? "",
+          row.wtl_midland_wtd_avg ?? "",
+          row.extraction_confidence ?? "",
+        ].join(","));
+      }
+      const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `argus-pricing-${selectedMonth}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // silent
+    }
+  }, [selectedMonth]);
+
   const latest = data?.latest;
   const transport = parseFloat(transportCost) || 0;
   const isWtlLease = activeLease.base === "WTL";
@@ -271,6 +312,20 @@ export default function ArgusPricingPage() {
                 onChange={(e) => setTransportCost(e.target.value)}
                 className="bg-slate-700 text-white border border-slate-600 rounded-lg px-3 py-2 text-sm w-24"
               />
+            </div>
+            {/* CSV Export */}
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">&nbsp;</label>
+              <button
+                onClick={downloadCsv}
+                disabled={!data?.rows?.length}
+                className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                CSV
+              </button>
             </div>
           </div>
         </div>
