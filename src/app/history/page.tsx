@@ -289,21 +289,23 @@ export default function HistoryPage() {
                     };
                     const midlandData = getMidlandData();
 
-                    // Get NYMEX settlement - prefer nymex, fallback to chartExport, then investingCom
+                    // Get NYMEX settlement - prefer nymex, fallback to chartExport, investingCom, then Yahoo CL
                     const getNymexPrice = () => {
                       const nymexVal = nymexMap.get(date);
-                      if (nymexVal !== undefined) return { value: nymexVal, isFillForward: false };
+                      if (nymexVal !== undefined && nymexVal !== null) return { value: nymexVal, isFillForward: false };
                       const chartVal = chartExportMap.get(date);
-                      if (chartVal !== undefined) return { value: chartVal, isFillForward: false };
+                      if (chartVal !== undefined && chartVal !== null) return { value: chartVal, isFillForward: false };
                       const invVal = investingComMap.get(date);
-                      if (invVal !== undefined) return { value: invVal, isFillForward: false };
+                      if (invVal !== undefined && invVal !== null) return { value: invVal, isFillForward: false };
+                      // Fallback to Yahoo CL (front-month WTI futures ≈ NYMEX settle)
+                      const yahooVal = futuresMap.get(date);
+                      if (yahooVal !== undefined && yahooVal !== null) return { value: yahooVal, isFillForward: false };
                       if (viewMode === "calendar") {
-                        // Try fill-forward for calendar view
                         const ff = getPriceWithFillForward(date, nymexMap, dates);
                         if (ff.value) return ff;
                         const ffChart = getPriceWithFillForward(date, chartExportMap, dates);
                         if (ffChart.value) return ffChart;
-                        return getPriceWithFillForward(date, investingComMap, dates);
+                        return getPriceWithFillForward(date, futuresMap, dates);
                       }
                       return { value: null, isFillForward: false };
                     };

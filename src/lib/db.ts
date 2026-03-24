@@ -207,6 +207,7 @@ export async function getLatestPrices(days: number = 30) {
               AND op.source = 'ARGUS'
               AND op.price_type = 'WTI_MIDLAND_DIFF'
           )
+
       ) combined
       ORDER BY date DESC, source, price_type`,
       [days]
