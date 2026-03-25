@@ -10,11 +10,21 @@ export interface ArgusPricingData {
   nymex_cma_td: number | null;
   cma_diff_daily: number | null;
   cma_diff_mtd: number | null;
+  cma_diff_low: number | null;
+  cma_diff_high: number | null;
   midland_diff_daily: number | null;
   midland_diff_mtd: number | null;
+  midland_diff_low: number | null;
+  midland_diff_high: number | null;
+  wti_midland_price_low: number | null;
+  wti_midland_price_high: number | null;
+  wti_midland_price: number | null;
   wtl_midland_low: number | null;
   wtl_midland_high: number | null;
   wtl_midland_wtd_avg: number | null;
+  wtl_midland_diff_low: number | null;
+  wtl_midland_diff_high: number | null;
+  wtl_midland_diff: number | null;
   extraction_confidence: number | null;
 }
 
@@ -24,47 +34,82 @@ interface RawExtraction {
   nymex_cma_td: number | null;
   cma_diff_daily: number | null;
   cma_diff_mtd: number | null;
+  cma_diff_low: number | null;
+  cma_diff_high: number | null;
   midland_diff_daily: number | null;
   midland_diff_mtd: number | null;
+  midland_diff_low: number | null;
+  midland_diff_high: number | null;
+  wti_midland_price_low: number | null;
+  wti_midland_price_high: number | null;
+  wti_midland_price: number | null;
   wtl_midland_low: number | null;
   wtl_midland_high: number | null;
   wtl_midland_wtd_avg: number | null;
+  wtl_midland_diff_low: number | null;
+  wtl_midland_diff_high: number | null;
+  wtl_midland_diff: number | null;
   extraction_confidence: number | null;
 }
 
 const EXTRACTION_PROMPT = `You are an expert at extracting pricing data from Argus Americas Crude (ACR) PDF reports. Focus on Page 2 of the report.
 
-Extract the following values from the pricing table on Page 2:
+Extract the following values from the pricing table on Page 2. The table has three main sections:
 
-1. **Report Date** — The date of the report (shown at the top of the document). Format: YYYY-MM-DD
-2. **Contract Month** — The current delivery/contract month being priced. Format: YYYY-MM (e.g., "2026-03")
-3. **NYMEX CMA TD** — The "CMA Nymex" or "CMA to-date" value. This is the running average of NYMEX WTI settlements for the delivery month. Look in the row labeled "CMA Nymex" or similar. This is typically in the range 20-200 $/bbl.
-4. **CMA Diff Daily** — The daily WTI diff to CMA Nymex value. Look for the "WTI diff to CMA Nymex" row, daily column. Can be negative or positive, typically -20 to +20.
-5. **CMA Diff MTD** — The month-to-date weighted average of the WTI diff to CMA Nymex. Same row as above, MTD/weighted avg column.
-6. **Midland Diff Daily** — The daily WTL Midland vs WTI Cushing differential. Look for "WTL Midland" row in the Texas section, "Diff low" or daily column. Typically -5 to +5.
-7. **Midland Diff MTD** — The month-to-date weighted average of the Midland differential. Same row, "Diff MTD weighted average" column.
-8. **WTL Midland Low** — The flat WTL Midland price from the "Low" column in the Texas section, "WTL Midland" row. This is the absolute $/bbl price, typically 50-150.
-9. **WTL Midland High** — The flat WTL Midland price from the "High" column in the Texas section, "WTL Midland" row. This is the absolute $/bbl price, typically 50-150.
-10. **WTL Midland Wtd Avg** — The flat WTL Midland price from the "Weighted average" column in the Texas section, "WTL Midland" row. This is the absolute $/bbl price, typically 50-150.
-11. **Extraction Confidence** — Your confidence in the extraction accuracy (0-100).
+**Section 1: WTI Diff to CMA Nymex (differentials only)**
+1. **report_date** — The date of the report. Format: YYYY-MM-DD
+2. **contract_month** — The delivery/contract month. Format: YYYY-MM
+3. **nymex_cma_td** — "CMA Nymex" or "CMA to-date" value (running NYMEX avg). Range: 20-200 $/bbl.
+4. **cma_diff_low** — "WTI diff to CMA Nymex" row, "Low" column. Typically -20 to +20.
+5. **cma_diff_high** — "WTI diff to CMA Nymex" row, "High" column. Typically -20 to +20.
+6. **cma_diff_daily** — "WTI diff to CMA Nymex" row, daily weighted average column. Typically -20 to +20.
+7. **cma_diff_mtd** — "WTI diff to CMA Nymex" row, MTD/month weighted average column.
+
+**Section 2: WTI Midland (differentials + flat prices)**
+8. **midland_diff_low** — "WTI Midland" row, "Diff Low" column. Typically -5 to +5.
+9. **midland_diff_high** — "WTI Midland" row, "Diff High" column. Typically -5 to +5.
+10. **midland_diff_daily** — "WTI Midland" row, "Diff" weighted average. Typically -5 to +5.
+11. **midland_diff_mtd** — "WTI Midland" row, MTD Diff weighted average.
+12. **wti_midland_price_low** — "WTI Midland" row, "Price Low" or "Low" flat price. Absolute $/bbl (50-200).
+13. **wti_midland_price_high** — "WTI Midland" row, "Price High" or "High" flat price. Absolute $/bbl (50-200).
+14. **wti_midland_price** — "WTI Midland" row, "Price" weighted average. Absolute $/bbl (50-200).
+
+**Section 3: WTL Midland (differentials + flat prices)**
+15. **wtl_midland_diff_low** — "WTL Midland" row, "Diff Low" column. Typically -5 to +5.
+16. **wtl_midland_diff_high** — "WTL Midland" row, "Diff High" column. Typically -5 to +5.
+17. **wtl_midland_diff** — "WTL Midland" row, "Diff" weighted average. Typically -5 to +5.
+18. **wtl_midland_low** — "WTL Midland" row, "Price Low" flat price. Absolute $/bbl (50-200).
+19. **wtl_midland_high** — "WTL Midland" row, "Price High" flat price. Absolute $/bbl (50-200).
+20. **wtl_midland_wtd_avg** — "WTL Midland" row, "Price" weighted average. Absolute $/bbl (50-200).
+21. **extraction_confidence** — Your confidence in the extraction accuracy (0-100).
 
 IMPORTANT:
 - All price values should be plain numbers (no $ signs, no units)
 - Negative values should have a minus sign (e.g., -0.25)
 - Use null for any value you cannot find
 - The contract month should be the delivery month referenced in the pricing table
-- Look specifically at the table with WTI-related differentials on Page 2
-- The WTL Midland flat prices (Low, High, Weighted average) are in the Texas section and are absolute $/bbl values (NOT differentials)
+- "Diff" values are differentials (small numbers, can be negative). "Price" values are absolute $/bbl (large numbers, 50-200).
+- WTI Midland and WTL Midland each have BOTH differential columns AND flat price columns — extract both.
 
 Return ONLY valid JSON matching this exact structure:
 {
   "report_date": "YYYY-MM-DD",
   "contract_month": "YYYY-MM",
   "nymex_cma_td": null,
+  "cma_diff_low": null,
+  "cma_diff_high": null,
   "cma_diff_daily": null,
   "cma_diff_mtd": null,
+  "midland_diff_low": null,
+  "midland_diff_high": null,
   "midland_diff_daily": null,
   "midland_diff_mtd": null,
+  "wti_midland_price_low": null,
+  "wti_midland_price_high": null,
+  "wti_midland_price": null,
+  "wtl_midland_diff_low": null,
+  "wtl_midland_diff_high": null,
+  "wtl_midland_diff": null,
   "wtl_midland_low": null,
   "wtl_midland_high": null,
   "wtl_midland_wtd_avg": null,
@@ -175,23 +220,22 @@ function validateExtractedPricing(data: RawExtraction): string[] {
   ) {
     errors.push(`Midland Diff MTD out of range: ${data.midland_diff_mtd}`);
   }
-  if (
-    data.wtl_midland_low !== null &&
-    (data.wtl_midland_low < 20 || data.wtl_midland_low > 200)
-  ) {
-    errors.push(`WTL Midland Low out of range: ${data.wtl_midland_low}`);
+  // Validate new Low/High diff fields (same range as their daily counterparts)
+  for (const field of ["cma_diff_low", "cma_diff_high"] as const) {
+    if (data[field] !== null && (data[field]! < -20 || data[field]! > 20)) {
+      errors.push(`${field} out of range: ${data[field]}`);
+    }
   }
-  if (
-    data.wtl_midland_high !== null &&
-    (data.wtl_midland_high < 20 || data.wtl_midland_high > 200)
-  ) {
-    errors.push(`WTL Midland High out of range: ${data.wtl_midland_high}`);
+  for (const field of ["midland_diff_low", "midland_diff_high", "wtl_midland_diff_low", "wtl_midland_diff_high", "wtl_midland_diff"] as const) {
+    if (data[field] !== null && (data[field]! < -20 || data[field]! > 20)) {
+      errors.push(`${field} out of range: ${data[field]}`);
+    }
   }
-  if (
-    data.wtl_midland_wtd_avg !== null &&
-    (data.wtl_midland_wtd_avg < 20 || data.wtl_midland_wtd_avg > 200)
-  ) {
-    errors.push(`WTL Midland Wtd Avg out of range: ${data.wtl_midland_wtd_avg}`);
+  // Validate flat prices (absolute $/bbl)
+  for (const field of ["wtl_midland_low", "wtl_midland_high", "wtl_midland_wtd_avg", "wti_midland_price_low", "wti_midland_price_high", "wti_midland_price"] as const) {
+    if (data[field] !== null && (data[field]! < 20 || data[field]! > 200)) {
+      errors.push(`${field} out of range: ${data[field]}`);
+    }
   }
   if (!data.report_date || !/^\d{4}-\d{2}-\d{2}$/.test(data.report_date)) {
     errors.push(`Invalid report_date format: ${data.report_date}`);

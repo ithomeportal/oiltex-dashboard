@@ -8,12 +8,22 @@ interface ArgusPricingRow {
   report_date: string;
   contract_month: string;
   nymex_cma_td: number | null;
+  cma_diff_low: number | null;
+  cma_diff_high: number | null;
   cma_diff_daily: number | null;
   cma_diff_mtd: number | null;
+  midland_diff_low: number | null;
+  midland_diff_high: number | null;
   midland_diff_daily: number | null;
   midland_diff_mtd: number | null;
+  wti_midland_price_low: number | null;
+  wti_midland_price_high: number | null;
+  wti_midland_price: number | null;
   est_net_daily: number | null;
   est_net_mtd: number | null;
+  wtl_midland_diff_low: number | null;
+  wtl_midland_diff_high: number | null;
+  wtl_midland_diff: number | null;
   wtl_midland_low: number | null;
   wtl_midland_high: number | null;
   wtl_midland_wtd_avg: number | null;
@@ -185,6 +195,90 @@ export default function ArgusPricingPage() {
     fetchProfit(selectedMonth);
   }, [selectedMonth, page, fetchData, fetchProfit]);
 
+  // Shared CSV builder for one month of data
+  const buildCsvRows = (rows: ArgusPricingRow[]) => {
+    // Sort rows by date ascending for change calculation (API returns DESC)
+    const sorted = [...rows].sort(
+      (a, b) => a.report_date.localeCompare(b.report_date)
+    );
+
+    const fmtTiming = (cm: string) => {
+      const [y, m] = cm.split("-");
+      const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      return `${months[parseInt(m, 10) - 1]}-${y}`;
+    };
+
+    const v = (n: number | null | undefined) => n ?? "";
+    const chg = (a: number | null | undefined, b: number | null | undefined) =>
+      a != null && b != null ? parseFloat((a - b).toFixed(4)) : "";
+
+    const dataRows: string[] = [];
+    for (let i = 0; i < sorted.length; i++) {
+      const row = sorted[i];
+      const prev = i > 0 ? sorted[i - 1] : null;
+      const timing = fmtTiming(row.contract_month);
+      const date = row.report_date.split("T")[0];
+
+      const cmaDiff = parseFloat(String(row.cma_diff_daily)) || null;
+      const prevCmaDiff = prev ? (parseFloat(String(prev.cma_diff_daily)) || null) : null;
+      const midDiff = parseFloat(String(row.midland_diff_daily)) || null;
+      const prevMidDiff = prev ? (parseFloat(String(prev.midland_diff_daily)) || null) : null;
+      const midPrice = parseFloat(String(row.wti_midland_price)) || null;
+      const prevMidPrice = prev ? (parseFloat(String(prev.wti_midland_price)) || null) : null;
+      const wtlDiff = parseFloat(String(row.wtl_midland_diff)) || null;
+      const prevWtlDiff = prev ? (parseFloat(String(prev.wtl_midland_diff)) || null) : null;
+      const wtlPrice = parseFloat(String(row.wtl_midland_wtd_avg)) || null;
+      const prevWtlPrice = prev ? (parseFloat(String(prev.wtl_midland_wtd_avg)) || null) : null;
+
+      dataRows.push([
+        date,
+        // WTI CMA Diff
+        timing, v(row.cma_diff_low), v(row.cma_diff_high), v(row.cma_diff_daily), chg(cmaDiff, prevCmaDiff),
+        // WTI Midland
+        timing, v(row.midland_diff_low), v(row.midland_diff_high), v(row.midland_diff_daily),
+        v(row.wti_midland_price_low), v(row.wti_midland_price_high), v(row.wti_midland_price),
+        chg(midPrice, prevMidPrice), chg(midDiff, prevMidDiff),
+        // WTL Midland
+        timing, v(row.wtl_midland_diff_low), v(row.wtl_midland_diff_high), v(row.wtl_midland_diff),
+        v(row.wtl_midland_low), v(row.wtl_midland_high), v(row.wtl_midland_wtd_avg),
+        chg(wtlPrice, prevWtlPrice), chg(wtlDiff, prevWtlDiff),
+        // Extra columns (beyond Excel format)
+        v(row.nymex_cma_td), v(row.cma_diff_mtd), v(row.midland_diff_mtd),
+        v(row.est_net_daily), v(row.est_net_mtd),
+      ].join(","));
+    }
+    // Return in reverse (most recent first)
+    return dataRows.reverse();
+  };
+
+  const csvHeaders = () => {
+    const headerRow1 = [
+      "",
+      "WTI Diff to CMA Nymex month 1 USD/bl", "", "", "", "",
+      "WTI Midland month 1 USD/bl", "", "", "", "", "", "", "", "",
+      "WTL Midland month 1 USD/bl", "", "", "", "", "", "", "", "",
+      "Extended Data", "", "", "", "",
+    ];
+    const headerRow2 = [
+      "Date",
+      "Timing", "Diff Low", "Diff High", "Diff", "Diff. Change",
+      "Timing", "Diff Low", "Diff High", "Diff", "Price Low", "Price High", "Price", "Change", "Diff. Change",
+      "Timing", "Diff Low", "Diff High", "Diff", "Price Low", "Price High", "Price", "Change", "Diff. Change",
+      "NYMEX CMA TD", "CMA Diff MTD", "Midland Diff MTD", "Est Net Daily", "Est Net MTD",
+    ];
+    return [headerRow1.join(","), headerRow2.join(",")];
+  };
+
+  const triggerDownload = (csvContent: string, filename: string) => {
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const downloadCsv = useCallback(async () => {
     if (!selectedMonth) return;
     try {
@@ -192,39 +286,44 @@ export default function ArgusPricingPage() {
       const json: PricingApiResponse = await res.json();
       if (!json.success || !json.data.rows.length) return;
 
-      const headers = [
-        "Date", "NYMEX CMA TD", "CMA Diff Daily", "CMA Diff MTD",
-        "Midland Diff Daily", "Midland Diff MTD", "Est Net Daily", "Est Net MTD",
-        "WTL Midland Low", "WTL Midland High", "WTL Midland Wtd Avg", "Confidence"
-      ];
-      const csvRows = [headers.join(",")];
-      for (const row of json.data.rows) {
-        csvRows.push([
-          row.report_date.split("T")[0],
-          row.nymex_cma_td ?? "",
-          row.cma_diff_daily ?? "",
-          row.cma_diff_mtd ?? "",
-          row.midland_diff_daily ?? "",
-          row.midland_diff_mtd ?? "",
-          row.est_net_daily ?? "",
-          row.est_net_mtd ?? "",
-          row.wtl_midland_low ?? "",
-          row.wtl_midland_high ?? "",
-          row.wtl_midland_wtd_avg ?? "",
-          row.extraction_confidence ?? "",
-        ].join(","));
-      }
-      const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `argus-pricing-${selectedMonth}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const headers = csvHeaders();
+      const dataRows = buildCsvRows(json.data.rows);
+      triggerDownload([...headers, ...dataRows].join("\n"), `argus-pricing-${selectedMonth}.csv`);
     } catch {
       // silent
     }
   }, [selectedMonth]);
+
+  const [downloadingAll, setDownloadingAll] = useState(false);
+
+  const downloadAllCsv = useCallback(async () => {
+    if (!data?.months?.length) return;
+    setDownloadingAll(true);
+    try {
+      const allRows: string[] = [];
+      const headers = csvHeaders();
+      allRows.push(...headers);
+
+      // Fetch each month's data sequentially
+      for (const month of data.months) {
+        const res = await fetch(`/api/argus-pricing?month=${month}&page=1&limit=999`);
+        const json: PricingApiResponse = await res.json();
+        if (!json.success || !json.data.rows.length) continue;
+
+        // Add month separator row
+        const fmtMonth = formatMonthName(month);
+        allRows.push("");
+        allRows.push(`--- ${fmtMonth} ---`);
+        allRows.push(...buildCsvRows(json.data.rows));
+      }
+
+      triggerDownload(allRows.join("\n"), "argus-pricing-all-months.csv");
+    } catch {
+      // silent
+    } finally {
+      setDownloadingAll(false);
+    }
+  }, [data?.months]);
 
   const latest = data?.latest;
   const transport = parseFloat(transportCost) || 0;
@@ -316,16 +415,30 @@ export default function ArgusPricingPage() {
             {/* CSV Export */}
             <div>
               <label className="text-xs text-slate-400 block mb-1">&nbsp;</label>
-              <button
-                onClick={downloadCsv}
-                disabled={!data?.rows?.length}
-                className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                CSV
-              </button>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={downloadCsv}
+                  disabled={!data?.rows?.length}
+                  className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+                  title="Download current month as CSV"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  CSV
+                </button>
+                <button
+                  onClick={downloadAllCsv}
+                  disabled={!data?.months?.length || downloadingAll}
+                  className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+                  title="Download all contract months as CSV"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  {downloadingAll ? "..." : "All"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

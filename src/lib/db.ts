@@ -146,6 +146,26 @@ export async function initDatabase() {
       END $$;
     `);
 
+    // Add expanded Argus pricing columns for full Excel-format CSV export
+    await client.query(`
+      DO $$ BEGIN
+        -- WTI CMA Diff: Low/High (daily is already stored as cma_diff_daily)
+        ALTER TABLE argus_pricing ADD COLUMN IF NOT EXISTS cma_diff_low DECIMAL(10,4);
+        ALTER TABLE argus_pricing ADD COLUMN IF NOT EXISTS cma_diff_high DECIMAL(10,4);
+        -- WTI Midland Diff: Low/High (daily is already stored as midland_diff_daily)
+        ALTER TABLE argus_pricing ADD COLUMN IF NOT EXISTS midland_diff_low DECIMAL(10,4);
+        ALTER TABLE argus_pricing ADD COLUMN IF NOT EXISTS midland_diff_high DECIMAL(10,4);
+        -- WTI Midland flat prices (absolute $/bbl)
+        ALTER TABLE argus_pricing ADD COLUMN IF NOT EXISTS wti_midland_price_low DECIMAL(10,4);
+        ALTER TABLE argus_pricing ADD COLUMN IF NOT EXISTS wti_midland_price_high DECIMAL(10,4);
+        ALTER TABLE argus_pricing ADD COLUMN IF NOT EXISTS wti_midland_price DECIMAL(10,4);
+        -- WTL Midland Diff (differential vs WTI, not flat price)
+        ALTER TABLE argus_pricing ADD COLUMN IF NOT EXISTS wtl_midland_diff_low DECIMAL(10,4);
+        ALTER TABLE argus_pricing ADD COLUMN IF NOT EXISTS wtl_midland_diff_high DECIMAL(10,4);
+        ALTER TABLE argus_pricing ADD COLUMN IF NOT EXISTS wtl_midland_diff DECIMAL(10,4);
+      END $$;
+    `);
+
     // Initialize OPs Inventory tables
     await initOpsInventoryTables();
 

@@ -6,12 +6,22 @@ export interface ArgusPricingRow {
   report_date: string;
   contract_month: string;
   nymex_cma_td: number | null;
+  cma_diff_low: number | null;
+  cma_diff_high: number | null;
   cma_diff_daily: number | null;
   cma_diff_mtd: number | null;
+  midland_diff_low: number | null;
+  midland_diff_high: number | null;
   midland_diff_daily: number | null;
   midland_diff_mtd: number | null;
+  wti_midland_price_low: number | null;
+  wti_midland_price_high: number | null;
+  wti_midland_price: number | null;
   est_net_daily: number | null;
   est_net_mtd: number | null;
+  wtl_midland_diff_low: number | null;
+  wtl_midland_diff_high: number | null;
+  wtl_midland_diff: number | null;
   wtl_midland_low: number | null;
   wtl_midland_high: number | null;
   wtl_midland_wtd_avg: number | null;
@@ -47,21 +57,33 @@ export async function saveArgusPricing(
     const result = await client.query(
       `INSERT INTO argus_pricing (
         report_date, contract_month, nymex_cma_td,
-        cma_diff_daily, cma_diff_mtd,
-        midland_diff_daily, midland_diff_mtd,
+        cma_diff_low, cma_diff_high, cma_diff_daily, cma_diff_mtd,
+        midland_diff_low, midland_diff_high, midland_diff_daily, midland_diff_mtd,
+        wti_midland_price_low, wti_midland_price_high, wti_midland_price,
         est_net_daily, est_net_mtd,
+        wtl_midland_diff_low, wtl_midland_diff_high, wtl_midland_diff,
         wtl_midland_low, wtl_midland_high, wtl_midland_wtd_avg,
         extraction_confidence, raw_extraction
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
       ON CONFLICT (report_date, contract_month)
       DO UPDATE SET
         nymex_cma_td = EXCLUDED.nymex_cma_td,
+        cma_diff_low = EXCLUDED.cma_diff_low,
+        cma_diff_high = EXCLUDED.cma_diff_high,
         cma_diff_daily = EXCLUDED.cma_diff_daily,
         cma_diff_mtd = EXCLUDED.cma_diff_mtd,
+        midland_diff_low = EXCLUDED.midland_diff_low,
+        midland_diff_high = EXCLUDED.midland_diff_high,
         midland_diff_daily = EXCLUDED.midland_diff_daily,
         midland_diff_mtd = EXCLUDED.midland_diff_mtd,
+        wti_midland_price_low = EXCLUDED.wti_midland_price_low,
+        wti_midland_price_high = EXCLUDED.wti_midland_price_high,
+        wti_midland_price = EXCLUDED.wti_midland_price,
         est_net_daily = EXCLUDED.est_net_daily,
         est_net_mtd = EXCLUDED.est_net_mtd,
+        wtl_midland_diff_low = EXCLUDED.wtl_midland_diff_low,
+        wtl_midland_diff_high = EXCLUDED.wtl_midland_diff_high,
+        wtl_midland_diff = EXCLUDED.wtl_midland_diff,
         wtl_midland_low = EXCLUDED.wtl_midland_low,
         wtl_midland_high = EXCLUDED.wtl_midland_high,
         wtl_midland_wtd_avg = EXCLUDED.wtl_midland_wtd_avg,
@@ -72,12 +94,22 @@ export async function saveArgusPricing(
         reportDate,
         contractMonth,
         data.nymex_cma_td,
+        data.cma_diff_low,
+        data.cma_diff_high,
         data.cma_diff_daily,
         data.cma_diff_mtd,
+        data.midland_diff_low,
+        data.midland_diff_high,
         data.midland_diff_daily,
         data.midland_diff_mtd,
+        data.wti_midland_price_low,
+        data.wti_midland_price_high,
+        data.wti_midland_price,
         estNetDaily,
         estNetMtd,
+        data.wtl_midland_diff_low,
+        data.wtl_midland_diff_high,
+        data.wtl_midland_diff,
         data.wtl_midland_low,
         data.wtl_midland_high,
         data.wtl_midland_wtd_avg,
