@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { initDatabase } from "@/lib/db";
 import { getArgusReports, getArgusReportByDate } from "@/lib/argus-db";
 import { extractArgusPricingFromUrl } from "@/lib/argus-extractor";
-import { saveArgusPricing } from "@/lib/argus-pricing-db";
+import {
+  saveArgusPricing,
+  getArgusPricingWithNullNymex,
+} from "@/lib/argus-pricing-db";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -17,7 +20,71 @@ export async function POST(request: Request) {
     await initDatabase();
 
     const body = await request.json();
-    const { all, date } = body as { all?: boolean; date?: string };
+    const { all, date, backfill_nulls } = body as {
+      all?: boolean;
+      date?: string;
+      backfill_nulls?: boolean;
+    };
+
+    // Backfill mode: re-extract only rows where nymex_cma_td is null
+    if (backfill_nulls) {
+      const nullRows = await getArgusPricingWithNullNymex();
+      if (nullRows.length === 0) {
+        return NextResponse.json({
+          success: true,
+          message: "No rows with null nymex_cma_td found",
+          fixed: 0,
+          still_null: 0,
+        });
+      }
+
+      let fixed = 0;
+      let stillNull = 0;
+      const errors: string[] = [];
+
+      for (const row of nullRows) {
+        const reportDate =
+          typeof row.report_date === "string"
+            ? row.report_date.split("T")[0]
+            : new Date(row.report_date).toISOString().split("T")[0];
+
+        // Find the corresponding argus_report to get the PDF URL
+        const report = await getArgusReportByDate(reportDate);
+        if (!report) {
+          errors.push(`${reportDate}: no argus_report found`);
+          stillNull++;
+          continue;
+        }
+
+        try {
+          const pricingData = await extractArgusPricingFromUrl(report.file_url);
+          if (pricingData.nymex_cma_td !== null) {
+            await saveArgusPricing(
+              reportDate,
+              pricingData,
+              pricingData as unknown as Record<string, unknown>
+            );
+            fixed++;
+          } else {
+            stillNull++;
+            errors.push(`${reportDate}: nymex_cma_td still null after retry`);
+          }
+        } catch (err) {
+          stillNull++;
+          const msg = err instanceof Error ? err.message : String(err);
+          errors.push(`${reportDate}: ${msg}`);
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Backfill: ${nullRows.length} null rows found, ${fixed} fixed, ${stillNull} still null`,
+        total: nullRows.length,
+        fixed,
+        still_null: stillNull,
+        errors: errors.length > 0 ? errors : undefined,
+      });
+    }
 
     let reports;
     if (date) {
@@ -27,7 +94,10 @@ export async function POST(request: Request) {
       reports = await getArgusReports(100, 0);
     } else {
       return NextResponse.json(
-        { error: "Provide { all: true } or { date: 'YYYY-MM-DD' }" },
+        {
+          error:
+            "Provide { all: true }, { date: 'YYYY-MM-DD' }, or { backfill_nulls: true }",
+        },
         { status: 400 }
       );
     }
@@ -44,7 +114,11 @@ export async function POST(request: Request) {
             ? report.report_date.split("T")[0]
             : new Date(report.report_date).toISOString().split("T")[0];
 
-        await saveArgusPricing(reportDate, pricingData, pricingData as unknown as Record<string, unknown>);
+        await saveArgusPricing(
+          reportDate,
+          pricingData,
+          pricingData as unknown as Record<string, unknown>
+        );
         extracted++;
       } catch (err) {
         failed++;

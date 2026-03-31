@@ -52,6 +52,20 @@ interface RawExtraction {
   extraction_confidence: number | null;
 }
 
+const RETRY_NYMEX_PROMPT = `You are an expert at extracting pricing data from Argus Americas Crude (ACR) PDF reports.
+
+CRITICAL TASK: On Page 2, find the "CMA Nymex" value. This is the cumulative month-to-date NYMEX average price, typically labeled "CMA Nymex" or "CMA to-date Nymex" or similar. It is a dollar-per-barrel value in the range $50-$200.
+
+It usually appears:
+- In the FIRST section/group on Page 2 (the WTI differentials section)
+- As a standalone value or in its own row, NOT as a differential
+- Near the top of the pricing table, often above or alongside the "WTI diff to CMA Nymex" row
+- It may be labeled "CMA Nymex", "Nymex CMA", "CMA to-date", or "NYMEX CMA TD"
+
+Return ONLY valid JSON: { "nymex_cma_td": <number or null> }
+
+If you find the value, return the number (no $ sign). If you truly cannot find it, return null.`;
+
 const EXTRACTION_PROMPT = `You are an expert at extracting pricing data from Argus Americas Crude (ACR) PDF reports. Focus on Page 2 of the report.
 
 Extract the following values from the pricing table on Page 2. The table has three main sections:
@@ -116,13 +130,13 @@ Return ONLY valid JSON matching this exact structure:
   "extraction_confidence": null
 }`;
 
-export async function extractArgusPricingFromBuffer(
-  pdfBuffer: Buffer
-): Promise<ArgusPricingData> {
-  const base64Pdf = pdfBuffer.toString("base64");
-
+async function callExtraction(
+  base64Pdf: string,
+  prompt: string,
+  model: string
+): Promise<string> {
   const message = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model,
     max_tokens: 2048,
     messages: [
       {
@@ -138,7 +152,7 @@ export async function extractArgusPricingFromBuffer(
           },
           {
             type: "text",
-            text: EXTRACTION_PROMPT,
+            text: prompt,
           },
         ],
       },
@@ -149,9 +163,59 @@ export async function extractArgusPricingFromBuffer(
   if (!textContent || textContent.type !== "text") {
     throw new Error("No text response from Claude");
   }
+  return textContent.text;
+}
 
-  const jsonStr = extractJsonFromResponse(textContent.text);
+async function retryNymexExtraction(
+  base64Pdf: string
+): Promise<number | null> {
+  try {
+    console.log("Retrying NYMEX CMA extraction with Sonnet...");
+    const text = await callExtraction(
+      base64Pdf,
+      RETRY_NYMEX_PROMPT,
+      "claude-sonnet-4-6-20250514"
+    );
+    const jsonStr = extractJsonFromResponse(text);
+    const result = JSON.parse(jsonStr) as { nymex_cma_td: number | null };
+    if (
+      result.nymex_cma_td !== null &&
+      result.nymex_cma_td >= 20 &&
+      result.nymex_cma_td <= 200
+    ) {
+      console.log(`Sonnet retry found nymex_cma_td: ${result.nymex_cma_td}`);
+      return result.nymex_cma_td;
+    }
+    return null;
+  } catch (err) {
+    console.warn("NYMEX retry failed:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+export async function extractArgusPricingFromBuffer(
+  pdfBuffer: Buffer
+): Promise<ArgusPricingData> {
+  const base64Pdf = pdfBuffer.toString("base64");
+
+  // Primary extraction with Haiku
+  const text = await callExtraction(
+    base64Pdf,
+    EXTRACTION_PROMPT,
+    "claude-haiku-4-5-20251001"
+  );
+
+  const jsonStr = extractJsonFromResponse(text);
   const parsed = JSON.parse(jsonStr) as RawExtraction;
+
+  // If nymex_cma_td is null, retry with Sonnet and a focused prompt
+  if (parsed.nymex_cma_td === null) {
+    console.warn("Haiku returned null for nymex_cma_td, attempting Sonnet retry...");
+    const retryValue = await retryNymexExtraction(base64Pdf);
+    if (retryValue !== null) {
+      parsed.nymex_cma_td = retryValue;
+    }
+  }
 
   const errors = validateExtractedPricing(parsed);
   if (errors.length > 0) {

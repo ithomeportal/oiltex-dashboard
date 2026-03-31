@@ -171,6 +171,20 @@ export async function getAvailableContractMonths(): Promise<string[]> {
   }
 }
 
+export async function getArgusPricingWithNullNymex(): Promise<ArgusPricingRow[]> {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      `SELECT * FROM argus_pricing
+       WHERE nymex_cma_td IS NULL
+       ORDER BY report_date DESC`
+    );
+    return result.rows;
+  } finally {
+    client.release();
+  }
+}
+
 export async function getArgusPricingCount(month?: string): Promise<number> {
   const client = await pool.connect();
   try {
