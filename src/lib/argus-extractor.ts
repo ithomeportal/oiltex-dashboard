@@ -54,30 +54,40 @@ interface RawExtraction {
 
 const RETRY_NYMEX_PROMPT = `You are an expert at extracting pricing data from Argus Americas Crude (ACR) PDF reports.
 
-CRITICAL TASK: On Page 2, find the "CMA Nymex" value. This is the cumulative month-to-date NYMEX average price, typically labeled "CMA Nymex" or "CMA to-date Nymex" or similar. It is a dollar-per-barrel value in the range $50-$200.
+CRITICAL TASK: On Page 2, find the "CMA Nymex" PRICE value for the front-month contract.
 
-It usually appears:
-- In the FIRST section/group on Page 2 (the WTI differentials section)
-- As a standalone value or in its own row, NOT as a differential
-- Near the top of the pricing table, often above or alongside the "WTI diff to CMA Nymex" row
-- It may be labeled "CMA Nymex", "Nymex CMA", "CMA to-date", or "NYMEX CMA TD"
+IMPORTANT: On Page 2, there is a small table near the top with rows labeled "CMA Nymex" for different months (Apr, May, Jun, Jul). Each row has a "Price" column with an absolute $/bbl value (typically $50-$200). This is SEPARATE from the "WTI diff to CMA Nymex" row lower in the table which has differential values.
+
+Look for the row: "CMA Nymex    [front month]    [Price value]"
+The Price value for the FIRST/front month is what I need. It will be a number like 89.47, 82.04, 77.42, etc.
 
 Return ONLY valid JSON: { "nymex_cma_td": <number or null> }
 
-If you find the value, return the number (no $ sign). If you truly cannot find it, return null.`;
+Return the number (no $ sign). If you truly cannot find it, return null.`;
 
 const EXTRACTION_PROMPT = `You are an expert at extracting pricing data from Argus Americas Crude (ACR) PDF reports. Focus on Page 2 of the report.
 
-Extract the following values from the pricing table on Page 2. The table has three main sections:
+Extract the following values from the pricing table on Page 2. The page has these sections from top to bottom:
 
-**Section 1: WTI Diff to CMA Nymex (differentials only)**
+**First: WTI Cushing rows** (absolute prices, skip these)
+**Then: "CMA Nymex" rows** — a small group of rows labeled "CMA Nymex" with months (Apr, May, Jun, Jul). Each has a Price column with absolute $/bbl values.
+**Then: WTI Houston, WTI Midland rows** (with Diff and Price columns)
+**Then: "WTI diff to CMA Nymex" row** (with differential values, NOT absolute prices)
+**Then: More crude grade rows...**
+**Then: WTL Midland row**
+
+Extract these values:
+
+**From "CMA Nymex" rows (absolute price, NOT differential):**
 1. **report_date** — The date of the report. Format: YYYY-MM-DD
-2. **contract_month** — The delivery/contract month. Format: YYYY-MM
-3. **nymex_cma_td** — "CMA Nymex" or "CMA to-date" value (running NYMEX avg). Range: 20-200 $/bbl.
-4. **cma_diff_low** — "WTI diff to CMA Nymex" row, "Low" column. Typically -20 to +20.
-5. **cma_diff_high** — "WTI diff to CMA Nymex" row, "High" column. Typically -20 to +20.
-6. **cma_diff_daily** — "WTI diff to CMA Nymex" row, daily weighted average column. Typically -20 to +20.
-7. **cma_diff_mtd** — "WTI diff to CMA Nymex" row, MTD/month weighted average column.
+2. **contract_month** — The front-month delivery/contract month. Format: YYYY-MM
+3. **nymex_cma_td** — "CMA Nymex" row for the FRONT MONTH, "Price" column. This is an absolute $/bbl value (range: 50-200). NOT a differential. Look for it near the top of Page 2, ABOVE the "WTI diff to CMA Nymex" row.
+
+**From "WTI diff to CMA Nymex" row (differentials only):**
+4. **cma_diff_low** — "WTI diff to CMA Nymex" row, "Diff low" column. Typically -20 to +20.
+5. **cma_diff_high** — "WTI diff to CMA Nymex" row, "Diff high" column. Typically -20 to +20.
+6. **cma_diff_daily** — "WTI diff to CMA Nymex" row, "Diff weighted average" column. Typically -20 to +20.
+7. **cma_diff_mtd** — "WTI diff to CMA Nymex" row, "Diff MTD weighted average" column.
 
 **Section 2: WTI Midland (differentials + flat prices)**
 8. **midland_diff_low** — "WTI Midland" row, "Diff Low" column. Typically -5 to +5.
