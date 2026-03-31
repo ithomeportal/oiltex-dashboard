@@ -26,14 +26,14 @@ export default function OpsInventoryOverview() {
   const [filterMode, setFilterMode] = useState<FilterMode>("month");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [expandedWell, setExpandedWell] = useState<string | null>(null);
-  const [wellTickets, setWellTickets] = useState<ReadonlyArray<OilTicket>>([]);
-  const [wellTicketsLoading, setWellTicketsLoading] = useState(false);
+  const [expandedWells, setExpandedWells] = useState<ReadonlySet<string>>(new Set());
+  const [wellTicketsMap, setWellTicketsMap] = useState<Readonly<Record<string, ReadonlyArray<OilTicket>>>>({});
+  const [wellTicketsLoading, setWellTicketsLoading] = useState<ReadonlySet<string>>(new Set());
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    setExpandedWell(null);
-    setWellTickets([]);
+    setExpandedWells(new Set());
+    setWellTicketsMap({});
     try {
       const params = new URLSearchParams();
       if (filterMode === "range" && dateFrom && dateTo) {
@@ -56,41 +56,68 @@ export default function OpsInventoryOverview() {
     fetchData();
   }, [fetchData]);
 
-  const handleWellClick = async (shipperName: string) => {
-    if (expandedWell === shipperName) {
-      setExpandedWell(null);
-      setWellTickets([]);
-      return;
+  const buildTicketParams = useCallback((shipperName: string) => {
+    const ticketParams = new URLSearchParams({ shipper: shipperName, limit: "100" });
+    if (filterMode === "range" && dateFrom && dateTo) {
+      ticketParams.set("dateFrom", dateFrom);
+      ticketParams.set("dateTo", dateTo);
+    } else {
+      const [year, monthNum] = month.split("-").map(Number);
+      const daysInMonth = new Date(year, monthNum, 0).getDate();
+      ticketParams.set("dateFrom", `${month}-01`);
+      ticketParams.set("dateTo", `${month}-${String(daysInMonth).padStart(2, "0")}`);
     }
+    return ticketParams;
+  }, [filterMode, dateFrom, dateTo, month]);
 
-    setExpandedWell(shipperName);
-    setWellTicketsLoading(true);
-
+  const fetchWellTickets = useCallback(async (shipperName: string) => {
+    setWellTicketsLoading((prev) => new Set([...prev, shipperName]));
     try {
-      const ticketParams = new URLSearchParams({ shipper: shipperName, limit: "100" });
-
-      if (filterMode === "range" && dateFrom && dateTo) {
-        ticketParams.set("dateFrom", dateFrom);
-        ticketParams.set("dateTo", dateTo);
-      } else {
-        const [year, monthNum] = month.split("-").map(Number);
-        const daysInMonth = new Date(year, monthNum, 0).getDate();
-        ticketParams.set("dateFrom", `${month}-01`);
-        ticketParams.set("dateTo", `${month}-${String(daysInMonth).padStart(2, "0")}`);
-      }
-
+      const ticketParams = buildTicketParams(shipperName);
       const res = await fetch(`/api/ops-inventory/tickets?${ticketParams.toString()}`);
       const data = await res.json();
-
       if (data.success) {
-        setWellTickets(data.data);
+        setWellTicketsMap((prev) => ({ ...prev, [shipperName]: data.data }));
       }
     } catch (error) {
       console.error("Error fetching well tickets:", error);
     } finally {
-      setWellTicketsLoading(false);
+      setWellTicketsLoading((prev) => {
+        const next = new Set(prev);
+        next.delete(shipperName);
+        return next;
+      });
+    }
+  }, [buildTicketParams]);
+
+  const handleWellClick = async (shipperName: string) => {
+    if (expandedWells.has(shipperName)) {
+      setExpandedWells((prev) => {
+        const next = new Set(prev);
+        next.delete(shipperName);
+        return next;
+      });
+      return;
+    }
+    setExpandedWells((prev) => new Set([...prev, shipperName]));
+    if (!wellTicketsMap[shipperName]) {
+      fetchWellTickets(shipperName);
     }
   };
+
+  const handleExpandAll = () => {
+    if (!summary?.wells) return;
+    const allNames = summary.wells.map((w) => w.shipper_name);
+    setExpandedWells(new Set(allNames));
+    const needsFetch = allNames.filter((name) => !wellTicketsMap[name]);
+    needsFetch.forEach((name) => fetchWellTickets(name));
+  };
+
+  const handleCollapseAll = () => {
+    setExpandedWells(new Set());
+  };
+
+  const allExpanded = (summary?.wells?.length ?? 0) > 0 && expandedWells.size === (summary?.wells?.length ?? 0);
 
   const formatBbls = (val: number | null | undefined): string => {
     if (val === null || val === undefined) return "0.00";
@@ -230,9 +257,22 @@ export default function OpsInventoryOverview() {
 
           {/* Per-Well Breakdown */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-            <div className="px-6 py-4 border-b border-slate-200">
-              <h2 className="text-lg font-semibold text-slate-800">Per-Well Breakdown</h2>
-              <p className="text-xs text-slate-400 mt-1">Click a well to see individual tickets</p>
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800">Per-Well Breakdown</h2>
+                <p className="text-xs text-slate-400 mt-1">Click a well to see individual tickets</p>
+              </div>
+              {(summary?.wells?.length ?? 0) > 0 && (
+                <button
+                  onClick={allExpanded ? handleCollapseAll : handleExpandAll}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                >
+                  <svg className={`w-4 h-4 transition-transform ${allExpanded ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={allExpanded ? "M19 9l-7 7-7-7" : "M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"} />
+                  </svg>
+                  {allExpanded ? "Collapse All" : "Expand All"}
+                </button>
+              )}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -252,15 +292,15 @@ export default function OpsInventoryOverview() {
                 <tbody className="divide-y divide-slate-200">
                   {summary?.wells && summary.wells.length > 0 ? (
                     summary.wells.map((well, i) => {
-                      const isExpanded = expandedWell === well.shipper_name;
+                      const isExpanded = expandedWells.has(well.shipper_name);
                       return (
                         <WellRow
                           key={i}
                           well={well}
                           index={i}
                           isExpanded={isExpanded}
-                          isLoading={isExpanded && wellTicketsLoading}
-                          tickets={isExpanded ? wellTickets : []}
+                          isLoading={isExpanded && wellTicketsLoading.has(well.shipper_name)}
+                          tickets={isExpanded ? (wellTicketsMap[well.shipper_name] ?? []) : []}
                           formatBbls={formatBbls}
                           onClick={() => handleWellClick(well.shipper_name)}
                         />
