@@ -405,6 +405,7 @@ function WellRow({
                       <th className="px-3 py-2 text-right">Loaded</th>
                       <th className="px-3 py-2 text-right">Net</th>
                       <th className="px-3 py-2 text-right">Delivered</th>
+                      <th className="px-3 py-2 text-right">BS&W%</th>
                       <th className="px-3 py-2 text-right">Gravity</th>
                       <th className="px-3 py-2 text-center">PDF</th>
                     </tr>
@@ -431,6 +432,9 @@ function WellRow({
                         </td>
                         <td className="px-3 py-2 text-sm text-right font-medium text-blue-600">
                           {ticket.delivered_bbls != null ? Number(ticket.delivered_bbls).toFixed(2) : "--"}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-right text-slate-800">
+                          {ticket.bsw_percent != null ? Number(ticket.bsw_percent).toFixed(2) : "--"}
                         </td>
                         <td className="px-3 py-2 text-sm text-right text-slate-800">
                           {ticket.obs_gravity != null ? Number(ticket.obs_gravity).toFixed(1) : "--"}
