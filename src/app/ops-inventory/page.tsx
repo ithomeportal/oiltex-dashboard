@@ -26,6 +26,7 @@ export default function OpsInventoryOverview() {
   const [filterMode, setFilterMode] = useState<FilterMode>("month");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [ticketSortAsc, setTicketSortAsc] = useState(true);
   const [expandedWells, setExpandedWells] = useState<ReadonlySet<string>>(new Set());
   const [wellTicketsMap, setWellTicketsMap] = useState<Readonly<Record<string, ReadonlyArray<OilTicket>>>>({});
   const [wellTicketsLoading, setWellTicketsLoading] = useState<ReadonlySet<string>>(new Set());
@@ -263,15 +264,26 @@ export default function OpsInventoryOverview() {
                 <p className="text-xs text-slate-400 mt-1">Click a well to see individual tickets</p>
               </div>
               {(summary?.wells?.length ?? 0) > 0 && (
-                <button
-                  onClick={allExpanded ? handleCollapseAll : handleExpandAll}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-                >
-                  <svg className={`w-4 h-4 transition-transform ${allExpanded ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={allExpanded ? "M19 9l-7 7-7-7" : "M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"} />
-                  </svg>
-                  {allExpanded ? "Collapse All" : "Expand All"}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setTicketSortAsc((prev) => !prev)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={ticketSortAsc ? "M3 4h13M3 8h9m-9 4h6m4 0l4 4m0 0l4-4m-4 4V4" : "M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"} />
+                    </svg>
+                    Date {ticketSortAsc ? "Asc" : "Desc"}
+                  </button>
+                  <button
+                    onClick={allExpanded ? handleCollapseAll : handleExpandAll}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                  >
+                    <svg className={`w-4 h-4 transition-transform ${allExpanded ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={allExpanded ? "M19 9l-7 7-7-7" : "M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"} />
+                    </svg>
+                    {allExpanded ? "Collapse All" : "Expand All"}
+                  </button>
+                </div>
               )}
             </div>
             <div className="overflow-x-auto">
@@ -301,6 +313,7 @@ export default function OpsInventoryOverview() {
                           isExpanded={isExpanded}
                           isLoading={isExpanded && wellTicketsLoading.has(well.shipper_name)}
                           tickets={isExpanded ? (wellTicketsMap[well.shipper_name] ?? []) : []}
+                          sortAsc={ticketSortAsc}
                           formatBbls={formatBbls}
                           onClick={() => handleWellClick(well.shipper_name)}
                         />
@@ -329,6 +342,7 @@ function WellRow({
   isExpanded,
   isLoading,
   tickets,
+  sortAsc,
   formatBbls,
   onClick,
 }: {
@@ -337,9 +351,15 @@ function WellRow({
   isExpanded: boolean;
   isLoading: boolean;
   tickets: ReadonlyArray<OilTicket>;
+  sortAsc: boolean;
   formatBbls: (val: number | null | undefined) => string;
   onClick: () => void;
 }) {
+  const sortedTickets = [...tickets].sort((a, b) => {
+    const dateA = a.ticket_date ? new Date(a.ticket_date).getTime() : 0;
+    const dateB = b.ticket_date ? new Date(b.ticket_date).getTime() : 0;
+    return sortAsc ? dateA - dateB : dateB - dateA;
+  });
   return (
     <>
       <tr
@@ -373,7 +393,7 @@ function WellRow({
             <div className="bg-blue-50/50 border-t border-b border-blue-100 px-8 py-4">
               {isLoading ? (
                 <p className="text-sm text-slate-400 text-center py-3 animate-pulse">Loading tickets...</p>
-              ) : tickets.length > 0 ? (
+              ) : sortedTickets.length > 0 ? (
                 <table className="w-full">
                   <thead>
                     <tr className="text-xs text-slate-500 uppercase">
@@ -390,7 +410,7 @@ function WellRow({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-blue-100">
-                    {tickets.map((ticket) => (
+                    {sortedTickets.map((ticket) => (
                       <tr key={ticket.id} className="hover:bg-blue-100/50 transition-colors">
                         <td className="px-3 py-2 text-sm text-slate-700">
                           {formatTicketDate(ticket.ticket_date)}
