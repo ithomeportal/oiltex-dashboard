@@ -18,6 +18,7 @@ function formatTicketDate(dateStr: string | null): string {
 }
 
 type FilterMode = "month" | "range";
+type BreakdownTab = "byWell" | "allTickets";
 
 export default function OpsInventoryOverview() {
   const [summary, setSummary] = useState<TicketSummary | null>(null);
@@ -30,11 +31,15 @@ export default function OpsInventoryOverview() {
   const [expandedWells, setExpandedWells] = useState<ReadonlySet<string>>(new Set());
   const [wellTicketsMap, setWellTicketsMap] = useState<Readonly<Record<string, ReadonlyArray<OilTicket>>>>({});
   const [wellTicketsLoading, setWellTicketsLoading] = useState<ReadonlySet<string>>(new Set());
+  const [breakdownTab, setBreakdownTab] = useState<BreakdownTab>("byWell");
+  const [allTickets, setAllTickets] = useState<ReadonlyArray<OilTicket>>([]);
+  const [allTicketsLoading, setAllTicketsLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setExpandedWells(new Set());
     setWellTicketsMap({});
+    setAllTickets([]);
     try {
       const params = new URLSearchParams();
       if (filterMode === "range" && dateFrom && dateTo) {
@@ -70,6 +75,35 @@ export default function OpsInventoryOverview() {
     }
     return ticketParams;
   }, [filterMode, dateFrom, dateTo, month]);
+
+  const fetchAllTickets = useCallback(async () => {
+    setAllTicketsLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: "500" });
+      if (filterMode === "range" && dateFrom && dateTo) {
+        params.set("dateFrom", dateFrom);
+        params.set("dateTo", dateTo);
+      } else {
+        const [year, monthNum] = month.split("-").map(Number);
+        const daysInMonth = new Date(year, monthNum, 0).getDate();
+        params.set("dateFrom", `${month}-01`);
+        params.set("dateTo", `${month}-${String(daysInMonth).padStart(2, "0")}`);
+      }
+      const res = await fetch(`/api/ops-inventory/tickets?${params.toString()}`);
+      const data = await res.json();
+      if (data.success) setAllTickets(data.data);
+    } catch (error) {
+      console.error("Error fetching all tickets:", error);
+    } finally {
+      setAllTicketsLoading(false);
+    }
+  }, [filterMode, dateFrom, dateTo, month]);
+
+  useEffect(() => {
+    if (breakdownTab === "allTickets") {
+      fetchAllTickets();
+    }
+  }, [breakdownTab, fetchAllTickets]);
 
   const fetchWellTickets = useCallback(async (shipperName: string) => {
     setWellTicketsLoading((prev) => new Set([...prev, shipperName]));
@@ -261,9 +295,30 @@ export default function OpsInventoryOverview() {
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-slate-800">Per-Well Breakdown</h2>
-                <p className="text-xs text-slate-400 mt-1">Click a well to see individual tickets</p>
+                <div className="flex items-center gap-1 mt-2">
+                  <button
+                    onClick={() => setBreakdownTab("byWell")}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                      breakdownTab === "byWell"
+                        ? "bg-blue-600 text-white"
+                        : "text-slate-500 hover:bg-slate-100"
+                    }`}
+                  >
+                    By Well
+                  </button>
+                  <button
+                    onClick={() => setBreakdownTab("allTickets")}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                      breakdownTab === "allTickets"
+                        ? "bg-blue-600 text-white"
+                        : "text-slate-500 hover:bg-slate-100"
+                    }`}
+                  >
+                    All Tickets
+                  </button>
+                </div>
               </div>
-              {(summary?.wells?.length ?? 0) > 0 && (
+              {breakdownTab === "byWell" && (summary?.wells?.length ?? 0) > 0 && (
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setTicketSortAsc((prev) => !prev)}
@@ -285,7 +340,23 @@ export default function OpsInventoryOverview() {
                   </button>
                 </div>
               )}
+              {breakdownTab === "allTickets" && allTickets.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setTicketSortAsc((prev) => !prev)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={ticketSortAsc ? "M3 4h13M3 8h9m-9 4h6m4 0l4 4m0 0l4-4m-4 4V4" : "M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"} />
+                    </svg>
+                    Date {ticketSortAsc ? "Asc" : "Desc"}
+                  </button>
+                  <span className="text-sm text-slate-400">{allTickets.length} tickets</span>
+                </div>
+              )}
             </div>
+
+            {breakdownTab === "byWell" && (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-slate-50">
@@ -329,6 +400,93 @@ export default function OpsInventoryOverview() {
                 </tbody>
               </table>
             </div>
+            )}
+
+            {breakdownTab === "allTickets" && (
+            <div className="overflow-x-auto">
+              {allTicketsLoading ? (
+                <p className="text-sm text-slate-400 text-center py-8 animate-pulse">Loading tickets...</p>
+              ) : allTickets.length > 0 ? (
+                <table className="w-full">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Well / Lease</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Ticket #</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">BOL #</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Driver</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Receiver</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Loaded</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Net</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Delivered</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">BS&W%</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Gravity</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase">PDF</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {[...allTickets]
+                      .sort((a, b) => {
+                        const dateA = a.ticket_date ? new Date(a.ticket_date).getTime() : 0;
+                        const dateB = b.ticket_date ? new Date(b.ticket_date).getTime() : 0;
+                        return ticketSortAsc ? dateA - dateB : dateB - dateA;
+                      })
+                      .map((ticket, i) => (
+                      <tr key={ticket.id} className={`transition-colors ${i % 2 === 0 ? "bg-white hover:bg-slate-100" : "bg-slate-50 hover:bg-slate-100"}`}>
+                        <td className="px-4 py-3 text-sm text-slate-700">{formatTicketDate(ticket.ticket_date)}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-slate-800">{ticket.shipper_name ?? "--"}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-blue-600">
+                          <Link href={`/ops-inventory/tickets/${ticket.id}`} className="hover:underline">
+                            {ticket.ticket_number ?? "--"}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-600">{ticket.bol_number ?? "--"}</td>
+                        <td className="px-4 py-3 text-sm text-slate-600">{ticket.driver_name ?? "--"}</td>
+                        <td className="px-4 py-3 text-sm text-slate-600">{ticket.receiver_name ?? "--"}</td>
+                        <td className="px-4 py-3 text-sm text-right text-slate-800">
+                          {ticket.loaded_barrels != null ? Number(ticket.loaded_barrels).toFixed(2) : "--"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right text-slate-800">
+                          {ticket.net_barrels != null ? Number(ticket.net_barrels).toFixed(2) : "--"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right font-medium text-blue-600">
+                          {ticket.delivered_bbls != null ? Number(ticket.delivered_bbls).toFixed(2) : "--"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right text-slate-800">
+                          {ticket.bsw_percent != null ? Number(ticket.bsw_percent).toFixed(2) : "--"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right text-slate-800">
+                          {ticket.obs_gravity != null ? Number(ticket.obs_gravity).toFixed(1) : "--"}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {ticket.file_url ? (
+                            <a
+                              href={ticket.file_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="View original PDF"
+                              className="inline-flex items-center justify-center text-red-500 hover:text-red-700 transition-colors"
+                            >
+                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z" />
+                                <path d="M8 12h3v1.5H9.5v1H11V16H8v-1.5h1.5v-1H8V12zm4 0h2c.55 0 1 .45 1 1v2c0 .55-.45 1-1 1h-2v-4zm1.5 1.5v1h.5v-1h-.5zM16 12h2v1.5h-1v.5h1V16h-2v-1.5h1v-.5h-1V12z" />
+                              </svg>
+                            </a>
+                          ) : (
+                            <span className="text-slate-300">--</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="px-4 py-8 text-center text-sm text-slate-400">
+                  No ticket data for {summary?.month ?? month}
+                </p>
+              )}
+            </div>
+            )}
           </div>
         </div>
       </div>
