@@ -452,7 +452,7 @@ export default function OpsInventoryOverview() {
                         <td className="px-4 py-3 text-sm text-right font-medium text-blue-600">
                           {ticket.delivered_bbls != null ? Number(ticket.delivered_bbls).toFixed(2) : "--"}
                         </td>
-                        <td className="px-4 py-3 text-sm text-right text-slate-800">
+                        <td className={`px-4 py-3 text-sm text-right ${ticket.bsw_percent != null && Number(ticket.bsw_percent) >= 0.90 ? "font-bold text-red-600" : "text-slate-800"}`}>
                           {ticket.bsw_percent != null ? Number(ticket.bsw_percent).toFixed(2) : "--"}
                         </td>
                         <td className="px-4 py-3 text-sm text-right text-slate-800">
@@ -591,7 +591,7 @@ function WellRow({
                         <td className="px-3 py-2 text-sm text-right font-medium text-blue-600">
                           {ticket.delivered_bbls != null ? Number(ticket.delivered_bbls).toFixed(2) : "--"}
                         </td>
-                        <td className="px-3 py-2 text-sm text-right text-slate-800">
+                        <td className={`px-3 py-2 text-sm text-right ${ticket.bsw_percent != null && Number(ticket.bsw_percent) >= 0.90 ? "font-bold text-red-600" : "text-slate-800"}`}>
                           {ticket.bsw_percent != null ? Number(ticket.bsw_percent).toFixed(2) : "--"}
                         </td>
                         <td className="px-3 py-2 text-sm text-right text-slate-800">
