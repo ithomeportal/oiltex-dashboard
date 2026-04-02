@@ -143,6 +143,36 @@ function TicketsPageContent() {
     fetchTickets();
   };
 
+  const [consolidating, setConsolidating] = useState(false);
+
+  const downloadConsolidatedPdf = async () => {
+    if (!activeMonthKey) return;
+    const [year, month] = activeMonthKey.split("-").map(Number);
+    const range = getMonthRange(year, month - 1);
+    setConsolidating(true);
+    try {
+      const res = await fetch(
+        `/api/ops-inventory/tickets/consolidated-pdf?dateFrom=${range.from}&dateTo=${range.to}`
+      );
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "Failed to generate consolidated PDF");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `OilTex_Tickets_${activeMonthKey}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Failed to generate consolidated PDF");
+    } finally {
+      setConsolidating(false);
+    }
+  };
+
   const clearFilters = () => {
     setDateFrom("");
     setDateTo("");
@@ -167,13 +197,26 @@ function TicketsPageContent() {
                 Search and view all extracted ticket data
               </p>
             </div>
-            <button
-              onClick={fetchTickets}
-              disabled={loading}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-            >
-              {loading ? "Loading..." : "Refresh"}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={downloadConsolidatedPdf}
+                disabled={consolidating || !activeMonthKey}
+                className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z" />
+                  <path d="M8 12h3v1.5H9.5v1H11V16H8v-1.5h1.5v-1H8V12zm4 0h2c.55 0 1 .45 1 1v2c0 .55-.45 1-1 1h-2v-4zm1.5 1.5v1h.5v-1h-.5zM16 12h2v1.5h-1v.5h1V16h-2v-1.5h1v-.5h-1V12z" />
+                </svg>
+                {consolidating ? "Generating..." : "Consolidated PDF"}
+              </button>
+              <button
+                onClick={fetchTickets}
+                disabled={loading}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              >
+                {loading ? "Loading..." : "Refresh"}
+              </button>
+            </div>
           </div>
 
           {/* Month Quick Filter */}

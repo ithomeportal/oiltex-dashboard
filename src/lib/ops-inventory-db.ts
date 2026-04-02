@@ -384,6 +384,24 @@ export async function updateTicket(
   }
 }
 
+export async function getTicketPdfUrls(dateFrom: string, dateTo: string): Promise<ReadonlyArray<{ ticket_number: string; file_url: string }>> {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      `SELECT t.ticket_number, u.file_url
+       FROM oil_tickets t
+       JOIN oil_ticket_uploads u ON t.upload_id = u.id
+       WHERE t.ticket_date >= $1 AND t.ticket_date <= $2
+         AND u.file_url IS NOT NULL
+       ORDER BY t.ticket_date ASC, t.id ASC`,
+      [dateFrom, dateTo]
+    );
+    return result.rows;
+  } finally {
+    client.release();
+  }
+}
+
 export async function getTicketSummary(
   options: { month?: string; dateFrom?: string; dateTo?: string } = {}
 ): Promise<TicketSummary> {
