@@ -384,6 +384,21 @@ export async function updateTicket(
   }
 }
 
+export async function getTicketsForExport(dateFrom: string, dateTo: string): Promise<ReadonlyArray<OilTicket>> {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      `SELECT * FROM oil_tickets
+       WHERE ticket_date >= $1 AND ticket_date <= $2
+       ORDER BY ticket_date ASC, shipper_name ASC, id ASC`,
+      [dateFrom, dateTo]
+    );
+    return result.rows;
+  } finally {
+    client.release();
+  }
+}
+
 export async function getTicketPdfUrls(dateFrom: string, dateTo: string): Promise<ReadonlyArray<{ ticket_number: string; file_url: string }>> {
   const client = await pool.connect();
   try {

@@ -144,6 +144,37 @@ function TicketsPageContent() {
   };
 
   const [consolidating, setConsolidating] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
+
+  const downloadTicketsSummary = async () => {
+    if (!activeMonthKey) return;
+    const [year, month] = activeMonthKey.split("-").map(Number);
+    const range = getMonthRange(year, month - 1);
+    setExportingExcel(true);
+    try {
+      const res = await fetch(
+        `/api/ops-inventory/tickets/summary-excel?dateFrom=${range.from}&dateTo=${range.to}`
+      );
+      if (!res.ok) {
+        let message = "Failed to export tickets summary";
+        try { const err = await res.json(); message = err.error || message; } catch {}
+        alert(message);
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      a.download = `${year}-${monthNames[month - 1]}-tickets.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Failed to export tickets summary");
+    } finally {
+      setExportingExcel(false);
+    }
+  };
 
   const downloadConsolidatedPdf = async () => {
     if (!activeMonthKey) return;
@@ -198,6 +229,17 @@ function TicketsPageContent() {
               </p>
             </div>
             <div className="flex gap-2">
+              <button
+                onClick={downloadTicketsSummary}
+                disabled={exportingExcel || !activeMonthKey}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z" />
+                  <path d="M8 13h8v1.5H8V13zm0 3h6v1.5H8V16zm0-6h8v1.5H8V10z" />
+                </svg>
+                {exportingExcel ? "Exporting..." : "Tickets Summary"}
+              </button>
               <button
                 onClick={downloadConsolidatedPdf}
                 disabled={consolidating || !activeMonthKey}
