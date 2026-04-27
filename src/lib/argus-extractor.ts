@@ -184,7 +184,7 @@ async function retryNymexExtraction(
     const text = await callExtraction(
       base64Pdf,
       RETRY_NYMEX_PROMPT,
-      "claude-sonnet-4-6-20250514"
+      "claude-sonnet-4-6"
     );
     const jsonStr = extractJsonFromResponse(text);
     const result = JSON.parse(jsonStr) as { nymex_cma_td: number | null };
