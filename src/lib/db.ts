@@ -14,10 +14,44 @@ const pool = new Pool({
 
 export default pool;
 
-// Initialize database tables
+// Tables this function is responsible for creating. Kept in sync with the
+// CREATE TABLE statements below.
+const MANAGED_TABLES = [
+  "oil_prices",
+  "auth_codes",
+  "sessions",
+  "price_calculations",
+  "argus_reports",
+  "argus_pricing",
+] as const;
+
+// Initialize database tables.
+//
+// IMPORTANT: this runs on request paths and on the price cron, so it must not
+// require DDL privileges once the schema exists. The runtime role (oiltex_rw)
+// deliberately does NOT hold CREATE on schema public: `defaultdb` is SHARED with
+// other applications (it-lms owns courses/enrollments/lesson_progress there), and
+// a web role should not be able to create tables in a shared database.
+//
+// After the 2026-07-20 least-privilege migration the unconditional DDL below
+// began throwing `42501 permission denied for schema public`, which aborted the
+// weekday price cron before it saved anything — silently, from 2026-07-17 on.
+// So: if every managed table already exists, skip the DDL entirely. If one is
+// genuinely missing we still attempt creation and fail loudly, because adding a
+// table to a shared database should be a deliberate, privileged action.
 export async function initDatabase() {
   const client = await pool.connect();
   try {
+    const { rows } = await client.query<{ missing: number }>(
+      `SELECT count(*)::int AS missing
+         FROM unnest($1::text[]) AS t(name)
+        WHERE to_regclass('public.' || t.name) IS NULL`,
+      [MANAGED_TABLES as unknown as string[]]
+    );
+    if (rows[0]?.missing === 0) {
+      await initOpsInventoryTables();
+      return;
+    }
     // Create oil_prices table for storing daily price data
     await client.query(`
       CREATE TABLE IF NOT EXISTS oil_prices (

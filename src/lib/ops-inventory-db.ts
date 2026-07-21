@@ -8,10 +8,26 @@ import type {
   UploadStatus,
 } from "./ticket-types";
 
-// Initialize OPs Inventory tables
+// Tables this function creates. Kept in sync with the CREATE TABLE statements below.
+const MANAGED_TABLES = ["oil_ticket_uploads", "oil_tickets"] as const;
+
+// Initialize OPs Inventory tables.
+//
+// Same constraint as initDatabase() in ./db.ts: the runtime role (oiltex_rw) has
+// no CREATE on schema public, because `defaultdb` is shared with other apps. This
+// DDL therefore only runs when a managed table is genuinely missing; otherwise it
+// is skipped so callers on request paths and crons don't hit
+// `42501 permission denied for schema public`.
 export async function initOpsInventoryTables(): Promise<void> {
   const client = await pool.connect();
   try {
+    const { rows } = await client.query<{ missing: number }>(
+      `SELECT count(*)::int AS missing
+         FROM unnest($1::text[]) AS t(name)
+        WHERE to_regclass('public.' || t.name) IS NULL`,
+      [MANAGED_TABLES as unknown as string[]]
+    );
+    if (rows[0]?.missing === 0) return;
     await client.query(`
       CREATE TABLE IF NOT EXISTS oil_ticket_uploads (
         id SERIAL PRIMARY KEY,

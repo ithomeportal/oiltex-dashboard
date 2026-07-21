@@ -1,15 +1,46 @@
 import { Pool, type QueryResult, type QueryResultRow } from "pg";
 
-const mcleodPool = new Pool({
-  host: process.env.DATABASE_HOST,
-  port: parseInt(process.env.DATABASE_PORT || "10261"),
-  user: process.env.DATABASE_USER,
-  password: process.env.DATABASE_PASSWORD,
-  database: "aivn_datalake_gold",
-  ssl: {
-    rejectUnauthorized: false,
-  },
-});
+// Prefer an explicit DATALAKE_DATABASE_URL backed by its own least-privilege role
+// (oiltex_gold_ro, SELECT on public.mcleod_gld_budget_report_v4 only).
+//
+// This pool used to reuse the PRIMARY database credentials while hardcoding a
+// different database name — the same "reach database B with database A's
+// credential" mistake as a URL rewrite, just spelled differently. It worked only
+// while one account could read everything; after the 2026-07-20 least-privilege
+// migration `oiltex_rw` had no grants in the datalake and every query here failed
+// with SQLSTATE 42501, taking out /api/ops-inventory/transport-orders and the
+// Buy/Sell/Profit calculation in /api/argus-pricing/profit.
+//
+// sslmode in the URL overrides the `ssl` object below and fails Aiven's chain
+// (SELF_SIGNED_CERT_IN_CHAIN), so strip it in any position.
+function stripSslMode(url: string): string {
+  return url
+    .replace(/([?&])sslmode=[^&]*/gi, "$1")
+    .replace(/[?&]$/, "")
+    .replace(/\?&/, "?")
+    .replace(/&&/g, "&");
+}
+
+const explicitDatalakeUrl = process.env.DATALAKE_DATABASE_URL;
+
+const mcleodPool = new Pool(
+  explicitDatalakeUrl
+    ? {
+        connectionString: stripSslMode(explicitDatalakeUrl),
+        ssl: { rejectUnauthorized: false },
+      }
+    : {
+        // Legacy fallback for local development only. Production must set
+        // DATALAKE_DATABASE_URL — never reach the datalake with the primary
+        // application credentials.
+        host: process.env.DATABASE_HOST,
+        port: parseInt(process.env.DATABASE_PORT || "10261"),
+        user: process.env.DATABASE_USER,
+        password: process.env.DATABASE_PASSWORD,
+        database: "aivn_datalake_gold",
+        ssl: { rejectUnauthorized: false },
+      }
+);
 
 export async function queryMcLeod<T extends QueryResultRow = QueryResultRow>(
   text: string,
