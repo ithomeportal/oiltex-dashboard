@@ -46,3 +46,10 @@ README*
 CONTRIBUTING*
 AUTHORS*
 CREDITS*
+
+# Documents
+*.pdf
+*.PDF
+
+# Keep license tracked
+!LICENSE
