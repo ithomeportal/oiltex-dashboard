@@ -4,12 +4,39 @@ import pool from "@/lib/db";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Allowed email domains for login
-const ALLOWED_DOMAINS = [
+/**
+ * Company email domains — the Microsoft 365 tenant's verified domains
+ * (Graph `GET /domains`). Widened from 3 to 16 on 2026-07-30 so staff on the
+ * other tenant domains can sign in.
+ *
+ * The login OTP is the only recipient-bearing mail this app sends, and this
+ * check runs before both the DB insert and the Resend call — so it is the send
+ * guard as well as the login gate. Override with ALLOWED_EMAIL_DOMAINS.
+ */
+const ORG_EMAIL_DOMAINS = [
+  "hireinternational.com",
+  "itunilink.com",
+  "mencarllc.com",
+  "mencarotr.com",
+  "mspekt.com",
   "oiltex.com",
-  "unilinktransportation.com",
+  "otxtransport.com",
+  "otxtransportation.com",
+  "prosperityenergyresources.com",
+  "seekequipment.com",
+  "u-capital.com",
+  "unilinkcapital.com",
   "unilinkportal.com",
+  "unilinktransportation.com",
+  "unilinktransportationsa.mail.onmicrosoft.com",
+  "unilinktransportationsa.onmicrosoft.com",
 ];
+
+const ALLOWED_DOMAINS = process.env.ALLOWED_EMAIL_DOMAINS?.trim()
+  ? process.env.ALLOWED_EMAIL_DOMAINS.split(",")
+      .map((d) => d.trim().toLowerCase().replace(/^@/, ""))
+      .filter(Boolean)
+  : ORG_EMAIL_DOMAINS;
 
 function generateCode(): string {
   // Generate 8-digit numeric code
