@@ -3,10 +3,12 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import pool from "@/lib/db";
 import { emailDomain, scopeForEmail } from "@/lib/access";
+import { clientIp } from "@/lib/request-ip";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const MAX_CODES_PER_WINDOW = 3;
+const MAX_CODES_PER_WINDOW = 3; // per email, 10 min
+const MAX_CODES_PER_IP = 10; // per client IP across all emails, 10 min
 
 function generateCode(): string {
   // 8-digit numeric code from a CSPRNG
@@ -49,16 +51,24 @@ export async function POST(request: Request) {
           WHERE email = $1 AND created_at > NOW() - INTERVAL '10 minutes'`,
         [email]
       );
-      if (recent.rows[0].n >= MAX_CODES_PER_WINDOW) {
+      const ip = clientIp(request);
+      const fromIp = ip
+        ? await client.query<{ n: number }>(
+            `SELECT COUNT(*)::int AS n FROM auth_codes
+              WHERE request_ip = $1 AND created_at > NOW() - INTERVAL '10 minutes'`,
+            [ip]
+          )
+        : null;
+      if (recent.rows[0].n >= MAX_CODES_PER_WINDOW || (fromIp?.rows[0].n ?? 0) >= MAX_CODES_PER_IP) {
         return NextResponse.json(
           { success: false, error: "Too many codes requested. Please wait 10 minutes and try again." },
           { status: 429 }
         );
       }
       await client.query(
-        `INSERT INTO auth_codes (email, code, expires_at)
-         VALUES ($1, $2, NOW() + INTERVAL '10 minutes')`,
-        [email, code]
+        `INSERT INTO auth_codes (email, code, expires_at, request_ip)
+         VALUES ($1, $2, NOW() + INTERVAL '10 minutes', $3)`,
+        [email, code, ip]
       );
     } finally {
       client.release();

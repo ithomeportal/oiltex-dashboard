@@ -42,11 +42,23 @@ CREATE TABLE IF NOT EXISTS sener_uploads (
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
--- OTP brute-force guard (src/app/api/auth/verify-code).
+-- One row per LOI analysis (paid Claude call) — per-user rate limit.
+CREATE TABLE IF NOT EXISTS sener_extract_log (
+  id         BIGSERIAL    PRIMARY KEY,
+  email      VARCHAR(320) NOT NULL,
+  created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS sener_extract_log_email_time ON sener_extract_log (email, created_at);
+
+-- OTP brute-force guard (src/app/api/auth/verify-code) and per-IP send throttle (send-code).
 ALTER TABLE auth_codes ADD COLUMN IF NOT EXISTS failed_attempts INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE auth_codes ADD COLUMN IF NOT EXISTS request_ip VARCHAR(64);
+CREATE INDEX IF NOT EXISTS auth_codes_ip_time ON auth_codes (request_ip, created_at);
 
 GRANT SELECT, INSERT, UPDATE ON sener_workspaces TO oiltex_rw;
 GRANT SELECT, INSERT ON sener_workspace_history TO oiltex_rw;
 GRANT USAGE, SELECT ON SEQUENCE sener_workspace_history_id_seq TO oiltex_rw;
 GRANT SELECT, INSERT ON sener_files TO oiltex_rw;
 GRANT SELECT, INSERT, DELETE ON sener_uploads TO oiltex_rw;
+GRANT SELECT, INSERT ON sener_extract_log TO oiltex_rw;
+GRANT USAGE, SELECT ON SEQUENCE sener_extract_log_id_seq TO oiltex_rw;
