@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { Pool } from "pg";
+import { wtiDailySeriesSql } from "@/lib/wti-series";
 
 const pool = new Pool({
   host: process.env.DATABASE_HOST,
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
 
   try {
     if (type === "annual") {
-      // Get annual averages and statistics
+      // Annual statistics over the same one-price-per-day WTI series as the chart
       const result = await client.query(`
         SELECT
           EXTRACT(YEAR FROM date) as year,
@@ -41,10 +42,7 @@ export async function GET(request: Request) {
           MIN(value) as min_price,
           MAX(value) as max_price,
           COUNT(*) as trading_days
-        FROM oil_prices
-        WHERE value IS NOT NULL
-          AND source IN ('NYMEX', 'NYMEX_EIA', 'CHART_EXPORT', 'EIA')
-          AND date < CURRENT_DATE
+        FROM (${wtiDailySeriesSql()}) daily
         GROUP BY EXTRACT(YEAR FROM date)
         ORDER BY year ASC
       `);
@@ -95,32 +93,10 @@ export async function GET(request: Request) {
           dateFilter = ""; // All data
       }
 
-      // Get one price per day (prefer NYMEX, fallback to others)
+      // One outright WTI price per day (never a differential — see src/lib/wti-series.ts)
       const result = await client.query(`
-        WITH ranked_prices AS (
-          SELECT
-            date,
-            value,
-            source,
-            ROW_NUMBER() OVER (
-              PARTITION BY date
-              ORDER BY CASE source
-                WHEN 'NYMEX' THEN 1
-                WHEN 'NYMEX_EIA' THEN 2
-                WHEN 'CHART_EXPORT' THEN 3
-                WHEN 'INVESTING_COM' THEN 4
-                WHEN 'EIA' THEN 5
-                ELSE 6
-              END
-            ) as rn
-          FROM oil_prices
-          WHERE value IS NOT NULL
-            AND date < CURRENT_DATE
-            ${dateFilter}
-        )
-        SELECT date, value as price
-        FROM ranked_prices
-        WHERE rn = 1
+        SELECT date, value AS price
+        FROM (${wtiDailySeriesSql(dateFilter)}) daily
         ORDER BY date ASC
       `);
 
