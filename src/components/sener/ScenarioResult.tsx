@@ -50,7 +50,7 @@ export default function ScenarioResult() {
         <span className="text-slate-600">Customer coverage</span>
         <strong className="text-slate-800">{num(scenario.demandCoverage, 1)}%</strong>
       </div>
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full">
           <thead className="bg-slate-50">
             <tr>

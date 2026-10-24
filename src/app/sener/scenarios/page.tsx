@@ -13,7 +13,7 @@ export default function SenerScenariosPage() {
       subtitle="Adjust potential volumes. See what changes. Keep your records intact."
     >
       <ScenarioIntro />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 *:min-w-0">
         <ScenarioControls />
         <ScenarioResult />
       </div>

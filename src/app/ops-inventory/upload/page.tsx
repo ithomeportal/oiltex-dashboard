@@ -2,6 +2,25 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { Page } from "@/components/ui/Page";
+import { Panel } from "@/components/ui/Panel";
+import { Field } from "@/components/ui/Controls";
+import {
+  TABLE_SCROLL,
+  TABLE,
+  STICKY_HEAD,
+  TH,
+  TH_NUM,
+  TD,
+  TD_NUM,
+  TR,
+  INPUT,
+  BTN_SECONDARY,
+  BTN_SUCCESS,
+  CARD,
+  BTN_SM_PRIMARY,
+} from "@/components/ui/styles";
+import { fmtNum } from "@/lib/format";
 import type { OilTicketUpload, OilTicket } from "@/lib/ticket-types";
 
 export default function UploadPage() {
@@ -151,7 +170,7 @@ export default function UploadPage() {
       failed: "bg-red-100 text-red-800",
     };
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] ?? "bg-slate-100 text-slate-600"}`}>
+      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${styles[status] ?? "bg-slate-100 text-slate-600"}`}>
         {status}
       </span>
     );
@@ -159,88 +178,125 @@ export default function UploadPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-8">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-slate-800">Upload Tickets</h1>
-            <p className="text-slate-500 text-sm mt-1">
-              Upload oil transport ticket PDFs for data extraction
-            </p>
+      <Page title="Upload Tickets" subtitle="Upload oil transport ticket PDFs for data extraction">
+        {/* Alerts */}
+        {error && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+            {success}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+          {/* Left: upload zone + extraction review */}
+          <div className="space-y-5 min-w-0">
+            <div className={`${CARD} p-4`}>
+              <div
+                className="border-2 border-dashed border-slate-300 rounded-xl p-10 text-center hover:border-blue-400 transition-colors cursor-pointer"
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.classList.add("border-blue-400", "bg-blue-50");
+                }}
+                onDragLeave={(e) => {
+                  e.currentTarget.classList.remove("border-blue-400", "bg-blue-50");
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.classList.remove("border-blue-400", "bg-blue-50");
+                  handleFileUpload(e.dataTransfer.files);
+                }}
+              >
+                <svg className="w-12 h-12 mx-auto text-slate-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <p className="text-slate-700 font-medium mb-1">
+                  {uploading ? "Uploading..." : "Drop PDF tickets here or click to browse"}
+                </p>
+                <p className="text-sm text-slate-500">
+                  PDF files only, up to 10MB each, 10 files per batch
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => handleFileUpload(e.target.files)}
+                  disabled={uploading}
+                />
+              </div>
+            </div>
+
+            {/* Extraction Review Panel */}
+            {selectedTicket && (
+              <Panel
+                title={`Extracted Data - Ticket #${selectedTicket.ticket_number}`}
+                subtitle="Edited fields are highlighted until saved"
+                actions={
+                  <>
+                    <button
+                      onClick={handleSaveCorrections}
+                      disabled={Object.keys(editFields).length === 0}
+                      className={BTN_SUCCESS}
+                    >
+                      Save Corrections
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedTicket(null);
+                        setEditFields({});
+                      }}
+                      className={BTN_SECONDARY}
+                    >
+                      Close
+                    </button>
+                  </>
+                }
+              >
+                <div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-x-4 gap-y-3">
+                  {reviewFields.map(({ key, label }) => {
+                    const currentValue = editFields[key] ?? String(selectedTicket[key as keyof OilTicket] ?? "");
+                    const edited = editFields[key] !== undefined;
+                    return (
+                      <Field key={key} label={label} htmlFor={`review-${key}`}>
+                        <input
+                          id={`review-${key}`}
+                          type="text"
+                          value={currentValue}
+                          onChange={(e) => handleEditField(key, e.target.value)}
+                          className={`${INPUT} ${edited ? "border-amber-400! bg-amber-50!" : ""}`}
+                        />
+                      </Field>
+                    );
+                  })}
+                </div>
+              </Panel>
+            )}
           </div>
 
-          {/* Alerts */}
-          {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-              {error}
-            </div>
-          )}
-          {success && (
-            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
-              {success}
-            </div>
-          )}
-
-          {/* Upload Zone */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 mb-8">
-            <div
-              className="border-2 border-dashed border-slate-300 rounded-xl p-12 text-center hover:border-blue-400 transition-colors cursor-pointer"
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.currentTarget.classList.add("border-blue-400", "bg-blue-50");
-              }}
-              onDragLeave={(e) => {
-                e.currentTarget.classList.remove("border-blue-400", "bg-blue-50");
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.currentTarget.classList.remove("border-blue-400", "bg-blue-50");
-                handleFileUpload(e.dataTransfer.files);
-              }}
-            >
-              <svg className="w-12 h-12 mx-auto text-slate-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-              <p className="text-slate-600 font-medium mb-1">
-                {uploading ? "Uploading..." : "Drop PDF tickets here or click to browse"}
-              </p>
-              <p className="text-sm text-slate-400">
-                PDF files only, up to 10MB each, 10 files per batch
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="application/pdf"
-                multiple
-                className="hidden"
-                onChange={(e) => handleFileUpload(e.target.files)}
-                disabled={uploading}
-              />
-            </div>
-          </div>
-
-          {/* Processing Queue */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 mb-8">
-            <div className="px-6 py-4 border-b border-slate-200">
-              <h2 className="text-lg font-semibold text-slate-800">Processing Queue</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-50">
+          {/* Right: processing queue / upload history */}
+          <Panel title="Processing Queue" subtitle={`${uploads.length} upload(s)`} flush>
+            <div className={TABLE_SCROLL}>
+              <table className={TABLE}>
+                <thead className={STICKY_HEAD}>
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Filename</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Upload Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Size</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Actions</th>
+                    <th className={TH}>Filename</th>
+                    <th className={TH}>Upload Date</th>
+                    <th className={TH_NUM}>Size</th>
+                    <th className={TH}>Status</th>
+                    <th className={TH}>Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody>
                   {uploads.length > 0 ? (
                     uploads.map((upload) => (
-                      <tr key={upload.id}>
-                        <td className="px-4 py-3 text-sm text-slate-800">
+                      <tr key={upload.id} className={TR}>
+                        <td className={`${TD} text-slate-800 max-w-[360px] truncate`} title={upload.filename}>
                           <a
                             href={upload.file_url}
                             target="_blank"
@@ -250,19 +306,19 @@ export default function UploadPage() {
                             {upload.filename}
                           </a>
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-600">
+                        <td className={`${TD} tabular-nums`}>
                           {new Date(upload.upload_date).toLocaleString()}
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-600">
-                          {(upload.file_size / 1024).toFixed(1)} KB
+                        <td className={TD_NUM}>
+                          {fmtNum(upload.file_size / 1024, 1)} KB
                         </td>
-                        <td className="px-4 py-3">{statusBadge(upload.status)}</td>
-                        <td className="px-4 py-3">
+                        <td className={TD}>{statusBadge(upload.status)}</td>
+                        <td className={`${TD} whitespace-normal min-w-[120px]`}>
                           {(upload.status === "pending" || upload.status === "failed") && (
                             <button
                               onClick={() => handleProcess(upload.id)}
                               disabled={processing === upload.id}
-                              className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                              className={BTN_SM_PRIMARY}
                             >
                               {processing === upload.id ? "Processing..." : "Extract"}
                             </button>
@@ -271,73 +327,24 @@ export default function UploadPage() {
                             <span className="text-sm text-blue-600 animate-pulse">Extracting...</span>
                           )}
                           {upload.error_message && (
-                            <p className="text-xs text-red-500 mt-1">{upload.error_message}</p>
+                            <p className="text-xs text-red-600 mt-1 max-w-[280px]">{upload.error_message}</p>
                           )}
                         </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-400">
-                        No uploads yet. Drop PDFs above to get started.
+                      <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-500">
+                        No uploads yet. Drop PDFs to get started.
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
-          </div>
-
-          {/* Extraction Review Panel */}
-          {selectedTicket && (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-              <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-                <h2 className="text-lg font-semibold text-slate-800">
-                  Extracted Data - Ticket #{selectedTicket.ticket_number}
-                </h2>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleSaveCorrections}
-                    disabled={Object.keys(editFields).length === 0}
-                    className="text-sm bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
-                  >
-                    Save Corrections
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedTicket(null);
-                      setEditFields({});
-                    }}
-                    className="text-sm bg-slate-200 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-300"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-              <div className="p-6 grid grid-cols-2 md:grid-cols-3 gap-4">
-                {reviewFields.map(({ key, label }) => {
-                  const currentValue = editFields[key] ?? String(selectedTicket[key as keyof OilTicket] ?? "");
-                  return (
-                    <div key={key}>
-                      <label className="block text-xs font-medium text-slate-500 mb-1">{label}</label>
-                      <input
-                        type="text"
-                        value={currentValue}
-                        onChange={(e) => handleEditField(key, e.target.value)}
-                        className={`w-full px-3 py-2 border rounded-lg text-sm ${
-                          editFields[key] !== undefined
-                            ? "border-amber-400 bg-amber-50"
-                            : "border-slate-300"
-                        }`}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          </Panel>
         </div>
-      </div>
+      </Page>
     </DashboardLayout>
   );
 }

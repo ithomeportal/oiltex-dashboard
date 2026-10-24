@@ -1,19 +1,53 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Design tokens — see docs/SPEC-UI-DESIGN-SYSTEM.md.
+   Light theme only; the sidebar is the single dark surface. */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-page: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-line: #e5e7eb;
+  --color-subtle: #f3f4f6;
+  --color-ink: #0f172a;
+  --color-muted: #64748b;
+  --color-faint: #94a3b8;
+  --color-brand: #d4222e;
+  --color-navy: #1b3a5c;
+  --color-good: #047857;
+  --color-warn: #b45309;
+  --color-bad: #b91c1c;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  color-scheme: light;
+}
+
+html {
+  background: var(--color-page);
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--color-ink);
+  background: var(--color-page);
+  font-family: var(--font-sans);
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+/* Every table aligns its digits — prices, volumes and dates must line up. */
+table {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Thin scrollbars inside scroll panes (tables, sidebar). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(148 163 184 / 0.5) transparent;
+}
+
+/* Recharts draws a focus outline around the whole SVG on click. */
+.recharts-wrapper *:focus,
+.recharts-surface:focus {
+  outline: none;
 }

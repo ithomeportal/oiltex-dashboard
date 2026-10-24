@@ -17,7 +17,7 @@ export default function StageCards() {
   if (!base || !scenario) return null;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 *:min-w-0">
       {ROLES.map((role, i) => {
         const changed = Math.abs(factors[role] - 1) > 0.001;
         const unused = scenario.unused[role];

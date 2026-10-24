@@ -20,7 +20,7 @@ export default function BalancePanel() {
   );
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6 *:min-w-0">
       <section className={`${CARD} lg:col-span-2`}>
         <div className="flex flex-wrap items-start justify-between gap-2 mb-5">
           <div>
@@ -42,7 +42,7 @@ export default function BalancePanel() {
         </div>
         <div className="space-y-4">
           {ROLES.map((role) => (
-            <div key={role} className="grid grid-cols-[110px_1fr_120px] items-center gap-3">
+            <div key={role} className="grid grid-cols-[88px_minmax(0,1fr)_92px] sm:grid-cols-[110px_minmax(0,1fr)_120px] items-center gap-3">
               <div className="flex items-center gap-2 text-sm text-slate-600">
                 <Icon name={ICON[role]} />
                 {STAGE_LABEL[role]}
@@ -62,7 +62,7 @@ export default function BalancePanel() {
               </div>
             </div>
           ))}
-          <div className="grid grid-cols-[110px_1fr_120px] gap-3 text-[11px] text-slate-400">
+          <div className="grid grid-cols-[88px_minmax(0,1fr)_92px] sm:grid-cols-[110px_minmax(0,1fr)_120px] gap-3 text-[11px] text-slate-400">
             <span />
             <div className="flex justify-between">
               {[0, 0.25, 0.5, 0.75, 1].map((f) => (

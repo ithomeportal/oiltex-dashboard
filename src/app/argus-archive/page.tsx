@@ -2,6 +2,23 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { Page } from "@/components/ui/Page";
+import { Panel } from "@/components/ui/Panel";
+import { StateBlock } from "@/components/ui/Controls";
+import {
+  TABLE_SCROLL,
+  TABLE,
+  STICKY_HEAD,
+  TH,
+  TH_NUM,
+  TD,
+  TD_NUM,
+  TR,
+  BTN_PRIMARY,
+  BTN_SM,
+  BTN_SM_PRIMARY,
+} from "@/components/ui/styles";
+import { fmtDayDate } from "@/lib/format";
 
 interface ArgusReport {
   id: number;
@@ -21,15 +38,11 @@ interface Meta {
   totalPages: number;
 }
 
+const COLUMN_COUNT = 5;
+
 function formatDate(dateStr: string): string {
-  const dateOnly = dateStr.split("T")[0];
-  const date = new Date(dateOnly + "T00:00:00");
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  // report_date is a calendar date; drop any time part before formatting.
+  return fmtDayDate(dateStr.split("T")[0]);
 }
 
 function formatFileSize(bytes: number | null): string {
@@ -114,139 +127,105 @@ export default function ArgusArchivePage() {
     [page, fetchReports]
   );
 
+  const uploadButton = (
+    <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf"
+        multiple
+        className="hidden"
+        onChange={(e) => handleUpload(e.target.files)}
+      />
+      <button
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        className={BTN_PRIMARY}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-4 w-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+          aria-hidden
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+          />
+        </svg>
+        {uploading ? "Uploading..." : "Upload PDF"}
+      </button>
+    </>
+  );
+
   return (
     <DashboardLayout>
-      <div className="p-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800">
-                Argus Archive
-              </h1>
-              <p className="text-slate-500 text-sm mt-1">
-                Daily Argus Americas Crude reports
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf"
-                multiple
-                className="hidden"
-                onChange={(e) => handleUpload(e.target.files)}
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                  />
-                </svg>
-                {uploading ? "Uploading..." : "Upload PDF"}
-              </button>
-            </div>
+      <Page title="Argus Archive" subtitle="Daily Argus Americas Crude reports" actions={uploadButton}>
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            {error}
           </div>
+        )}
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">
-              {error}
-            </div>
-          )}
+        {uploadMsg && (
+          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm whitespace-pre-line">
+            {uploadMsg}
+          </div>
+        )}
 
-          {uploadMsg && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 text-sm whitespace-pre-line">
-              {uploadMsg}
-            </div>
-          )}
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-slate-50">
+        <Panel flush>
+          <div className={TABLE_SCROLL}>
+            <table className={TABLE}>
+              <thead className={STICKY_HEAD}>
                 <tr>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Report Type
-                  </th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Filename
-                  </th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Size
-                  </th>
-                  <th className="text-right px-6 py-4 text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className={TH}>Date</th>
+                  <th className={TH}>Report Type</th>
+                  <th className={TH}>Filename</th>
+                  <th className={TH_NUM}>Size</th>
+                  <th className={TH_NUM}>Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody>
                 {loading ? (
                   <tr>
-                    <td
-                      colSpan={5}
-                      className="px-6 py-12 text-center text-slate-400"
-                    >
-                      Loading reports...
+                    <td colSpan={COLUMN_COUNT}>
+                      <StateBlock kind="loading">Loading reports...</StateBlock>
                     </td>
                   </tr>
                 ) : reports.length === 0 ? (
                   <tr>
-                    <td
-                      colSpan={5}
-                      className="px-6 py-12 text-center text-slate-400"
-                    >
-                      No reports found
+                    <td colSpan={COLUMN_COUNT}>
+                      <StateBlock kind="empty">No reports found</StateBlock>
                     </td>
                   </tr>
                 ) : (
-                  reports.map((report, i) => (
-                    <tr
-                      key={report.id}
-                      className={
-                        i % 2 === 0 ? "bg-white" : "bg-slate-50"
-                      }
-                    >
-                      <td className="px-6 py-4 text-sm text-slate-800 font-medium">
+                  reports.map((report) => (
+                    <tr key={report.id} className={TR}>
+                      <td className={`${TD} font-medium text-slate-800 tabular-nums`}>
                         {formatDate(report.report_date)}
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-600">
-                        {report.report_type}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-600 max-w-xs truncate">
+                      <td className={TD}>{report.report_type}</td>
+                      <td className={`${TD} max-w-[640px] truncate`} title={report.filename}>
                         {report.filename}
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-500">
+                      <td className={`${TD_NUM} text-slate-500`}>
                         {formatFileSize(report.file_size)}
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className={`${TD} text-right`}>
                         <div className="flex items-center justify-end gap-2">
                           <a
                             href={report.file_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
+                            className={BTN_SM_PRIMARY}
                           >
                             View PDF
                           </a>
-                          <a
-                            href={report.file_url}
-                            download={report.filename}
-                            className="px-3 py-1.5 text-xs font-medium bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition-colors"
-                          >
+                          <a href={report.file_url} download={report.filename} className={BTN_SM}>
                             Download
                           </a>
                         </div>
@@ -256,41 +235,39 @@ export default function ArgusArchivePage() {
                 )}
               </tbody>
             </table>
-
-            {/* Pagination */}
-            {meta && meta.totalPages > 1 && (
-              <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50">
-                <p className="text-sm text-slate-500">
-                  Showing {(meta.page - 1) * meta.limit + 1}–
-                  {Math.min(meta.page * meta.limit, meta.total)} of{" "}
-                  {meta.total} reports
-                </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="px-3 py-1.5 text-sm bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Previous
-                  </button>
-                  <span className="text-sm text-slate-500">
-                    Page {meta.page} of {meta.totalPages}
-                  </span>
-                  <button
-                    onClick={() =>
-                      setPage((p) => Math.min(meta.totalPages, p + 1))
-                    }
-                    disabled={page === meta.totalPages}
-                    className="px-3 py-1.5 text-sm bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
-        </div>
-      </div>
+
+          {/* Pagination */}
+          {meta && meta.totalPages > 1 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-t border-line bg-slate-50">
+              <p className="text-sm text-slate-500 tabular-nums">
+                Showing {(meta.page - 1) * meta.limit + 1}–
+                {Math.min(meta.page * meta.limit, meta.total)} of{" "}
+                {meta.total} reports
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className={BTN_SM}
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-slate-500 tabular-nums">
+                  Page {meta.page} of {meta.totalPages}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
+                  disabled={page === meta.totalPages}
+                  className={BTN_SM}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </Panel>
+      </Page>
     </DashboardLayout>
   );
 }

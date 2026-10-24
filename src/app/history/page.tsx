@@ -2,6 +2,20 @@
 
 import { useState, useEffect, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { Page } from "@/components/ui/Page";
+import { Panel } from "@/components/ui/Panel";
+import { Field, Segmented } from "@/components/ui/Controls";
+import { BTN_PRIMARY, SELECT, STICKY_HEAD, TABLE, TABLE_SCROLL, TD, TD_NUM, TH, TH_NUM, TR } from "@/components/ui/styles";
+
+type ViewMode = "trading" | "calendar";
+
+/** Highlighted WTI Index header (amber instead of the default slate fill). */
+const TH_INDEX = TH_NUM.replace("bg-slate-50", "bg-amber-50");
+
+const VIEW_OPTIONS: readonly { value: ViewMode; label: string }[] = [
+  { value: "calendar", label: "All Days" },
+  { value: "trading", label: "Trading Only" },
+];
 
 interface PriceData {
   date: string;
@@ -46,7 +60,7 @@ export default function HistoryPage() {
   const [prices, setPrices] = useState<LivePrices | null>(null);
   const [loading, setLoading] = useState(false);
   const [daysToShow, setDaysToShow] = useState(30);
-  const [viewMode, setViewMode] = useState<"trading" | "calendar">("trading");
+  const [viewMode, setViewMode] = useState<ViewMode>("trading");
 
   const fetchPrices = useCallback(async () => {
     setLoading(true);
@@ -145,44 +159,25 @@ export default function HistoryPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-8">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800">Recent Price History</h1>
-              <p className="text-slate-500 text-sm mt-1">
-                Historical price data from all sources
-              </p>
-            </div>
-            <div className="flex items-center gap-4">
-              {/* View Mode Toggle */}
-              <div className="flex rounded-lg border border-slate-300 overflow-hidden">
-                <button
-                  onClick={() => setViewMode("calendar")}
-                  className={`px-3 py-2 text-sm font-medium transition-colors ${
-                    viewMode === "calendar"
-                      ? "bg-blue-600 text-white"
-                      : "bg-white text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  All Days
-                </button>
-                <button
-                  onClick={() => setViewMode("trading")}
-                  className={`px-3 py-2 text-sm font-medium transition-colors ${
-                    viewMode === "trading"
-                      ? "bg-blue-600 text-white"
-                      : "bg-white text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  Trading Only
-                </button>
-              </div>
+      <Page
+        title="Recent Price History"
+        subtitle="Historical price data from all sources"
+        actions={
+          <button onClick={fetchPrices} disabled={loading} className={BTN_PRIMARY}>
+            {loading ? "Refreshing..." : "Refresh"}
+          </button>
+        }
+        toolbar={
+          <>
+            <Field label="View">
+              <Segmented options={VIEW_OPTIONS} value={viewMode} onChange={setViewMode} ariaLabel="View mode" />
+            </Field>
+            <Field label="Range" htmlFor="history-days" className="w-44">
               <select
+                id="history-days"
                 value={daysToShow}
                 onChange={(e) => setDaysToShow(parseInt(e.target.value))}
-                className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 bg-white"
+                className={SELECT}
               >
                 <option value={7}>Last 7 days</option>
                 <option value={14}>Last 14 days</option>
@@ -190,210 +185,189 @@ export default function HistoryPage() {
                 <option value={60}>Last 60 days</option>
                 <option value={90}>Last 90 days</option>
               </select>
-              <button
-                onClick={fetchPrices}
-                disabled={loading}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-              >
-                {loading ? "Refreshing..." : "Refresh"}
-              </button>
-            </div>
-          </div>
+            </Field>
+          </>
+        }
+      >
+        {/* Price History Table */}
+        <Panel flush>
+          <div className={TABLE_SCROLL}>
+            <table className={TABLE}>
+              <thead className={STICKY_HEAD}>
+                <tr>
+                  <th className={TH}>Date</th>
+                  <th className={TH_INDEX}>
+                    <span className="text-amber-600">WTI Index</span>
+                  </th>
+                  <th className={TH_NUM}>WTI Spot (EIA)</th>
+                  <th className={TH_NUM}>NYMEX Settle</th>
+                  <th className={TH_NUM}>WTI Futures (CL)</th>
+                  <th className={TH_NUM}>Midland Diff</th>
+                  <th className={TH_NUM}>Est. Net Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dates.slice(0, daysToShow).map((date) => {
+                  const weekend = isWeekend(date);
 
-          {/* Price History Table */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-4 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-4 py-4 text-right text-xs font-medium text-amber-600 uppercase tracking-wider font-semibold">
-                      WTI Index
-                    </th>
-                    <th className="px-4 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      WTI Spot (EIA)
-                    </th>
-                    <th className="px-4 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      NYMEX Settle
-                    </th>
-                    <th className="px-4 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      WTI Futures (CL)
-                    </th>
-                    <th className="px-4 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      Midland Diff
-                    </th>
-                    <th className="px-4 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                      Est. Net Price
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {dates.slice(0, daysToShow).map((date, i) => {
-                    const weekend = isWeekend(date);
+                  // WTI Index: prefer EIA, fallback to FRED, NYMEX settle, Yahoo CL, chart export
+                  const getWtiIndex = () => {
+                    const eiaVal = eiaMap.get(date);
+                    if (eiaVal !== undefined && eiaVal !== null) return { value: eiaVal, isFillForward: false };
+                    const fredVal = fredMap.get(date);
+                    if (fredVal !== undefined && fredVal !== null) return { value: fredVal, isFillForward: false };
+                    const nymexVal = nymexMap.get(date);
+                    if (nymexVal !== undefined && nymexVal !== null) return { value: nymexVal, isFillForward: false };
+                    const yahooVal = futuresMap.get(date);
+                    if (yahooVal !== undefined && yahooVal !== null) return { value: yahooVal, isFillForward: false };
+                    const chartVal = chartExportMap.get(date);
+                    if (chartVal !== undefined && chartVal !== null) return { value: chartVal, isFillForward: false };
+                    if (viewMode === "calendar") {
+                      const ffEia = getPriceWithFillForward(date, eiaMap, dates);
+                      if (ffEia.value !== null) return ffEia;
+                      const ffFred = getPriceWithFillForward(date, fredMap, dates);
+                      if (ffFred.value !== null) return ffFred;
+                      return getPriceWithFillForward(date, nymexMap, dates);
+                    }
+                    return { value: null, isFillForward: false };
+                  };
+                  const wtiIndexData = getWtiIndex();
 
-                    // WTI Index: prefer EIA, fallback to FRED, NYMEX settle, Yahoo CL, chart export
-                    const getWtiIndex = () => {
-                      const eiaVal = eiaMap.get(date);
-                      if (eiaVal !== undefined && eiaVal !== null) return { value: eiaVal, isFillForward: false };
-                      const fredVal = fredMap.get(date);
-                      if (fredVal !== undefined && fredVal !== null) return { value: fredVal, isFillForward: false };
-                      const nymexVal = nymexMap.get(date);
-                      if (nymexVal !== undefined && nymexVal !== null) return { value: nymexVal, isFillForward: false };
-                      const yahooVal = futuresMap.get(date);
-                      if (yahooVal !== undefined && yahooVal !== null) return { value: yahooVal, isFillForward: false };
-                      const chartVal = chartExportMap.get(date);
-                      if (chartVal !== undefined && chartVal !== null) return { value: chartVal, isFillForward: false };
-                      if (viewMode === "calendar") {
-                        const ffEia = getPriceWithFillForward(date, eiaMap, dates);
-                        if (ffEia.value !== null) return ffEia;
-                        const ffFred = getPriceWithFillForward(date, fredMap, dates);
-                        if (ffFred.value !== null) return ffFred;
-                        return getPriceWithFillForward(date, nymexMap, dates);
-                      }
-                      return { value: null, isFillForward: false };
-                    };
-                    const wtiIndexData = getWtiIndex();
+                  // Get prices - use map lookup (already normalized)
+                  const eiaData = viewMode === "calendar"
+                    ? getPriceWithFillForward(date, eiaMap, dates)
+                    : { value: eiaMap.get(date) ?? null, isFillForward: false };
+                  // WTI Futures: prefer NYMEX settle, fallback to Yahoo CL
+                  const getFuturesData = () => {
+                    const nymexVal = nymexMap.get(date);
+                    if (nymexVal !== undefined && nymexVal !== null) return { value: nymexVal, isFillForward: false };
+                    const yahooVal = futuresMap.get(date);
+                    if (yahooVal !== undefined && yahooVal !== null) return { value: yahooVal, isFillForward: false };
+                    if (viewMode === "calendar") {
+                      const ff = getPriceWithFillForward(date, nymexMap, dates);
+                      if (ff.value !== null) return ff;
+                      return getPriceWithFillForward(date, futuresMap, dates);
+                    }
+                    return { value: null, isFillForward: false };
+                  };
+                  const futuresData = getFuturesData();
+                  // Midland Diff: prefer Argus WTI Midland, fallback to Yahoo WTT
+                  const getMidlandData = () => {
+                    const argusVal = argusMidlandMap.get(date);
+                    if (argusVal !== undefined && argusVal !== null) return { value: argusVal, isFillForward: false };
+                    const yahooVal = midlandMap.get(date);
+                    if (yahooVal !== undefined && yahooVal !== null) return { value: yahooVal, isFillForward: false };
+                    if (viewMode === "calendar") {
+                      const ff = getPriceWithFillForward(date, argusMidlandMap, dates);
+                      if (ff.value !== null) return ff;
+                      return getPriceWithFillForward(date, midlandMap, dates);
+                    }
+                    return { value: null, isFillForward: false };
+                  };
+                  const midlandData = getMidlandData();
 
-                    // Get prices - use map lookup (already normalized)
-                    const eiaData = viewMode === "calendar"
-                      ? getPriceWithFillForward(date, eiaMap, dates)
-                      : { value: eiaMap.get(date) ?? null, isFillForward: false };
-                    // WTI Futures: prefer NYMEX settle, fallback to Yahoo CL
-                    const getFuturesData = () => {
-                      const nymexVal = nymexMap.get(date);
-                      if (nymexVal !== undefined && nymexVal !== null) return { value: nymexVal, isFillForward: false };
-                      const yahooVal = futuresMap.get(date);
-                      if (yahooVal !== undefined && yahooVal !== null) return { value: yahooVal, isFillForward: false };
-                      if (viewMode === "calendar") {
-                        const ff = getPriceWithFillForward(date, nymexMap, dates);
-                        if (ff.value !== null) return ff;
-                        return getPriceWithFillForward(date, futuresMap, dates);
-                      }
-                      return { value: null, isFillForward: false };
-                    };
-                    const futuresData = getFuturesData();
-                    // Midland Diff: prefer Argus WTI Midland, fallback to Yahoo WTT
-                    const getMidlandData = () => {
-                      const argusVal = argusMidlandMap.get(date);
-                      if (argusVal !== undefined && argusVal !== null) return { value: argusVal, isFillForward: false };
-                      const yahooVal = midlandMap.get(date);
-                      if (yahooVal !== undefined && yahooVal !== null) return { value: yahooVal, isFillForward: false };
-                      if (viewMode === "calendar") {
-                        const ff = getPriceWithFillForward(date, argusMidlandMap, dates);
-                        if (ff.value !== null) return ff;
-                        return getPriceWithFillForward(date, midlandMap, dates);
-                      }
-                      return { value: null, isFillForward: false };
-                    };
-                    const midlandData = getMidlandData();
+                  // Get NYMEX settlement - prefer nymex, fallback to chartExport, investingCom, then Yahoo CL
+                  const getNymexPrice = () => {
+                    const nymexVal = nymexMap.get(date);
+                    if (nymexVal !== undefined && nymexVal !== null) return { value: nymexVal, isFillForward: false };
+                    const chartVal = chartExportMap.get(date);
+                    if (chartVal !== undefined && chartVal !== null) return { value: chartVal, isFillForward: false };
+                    const invVal = investingComMap.get(date);
+                    if (invVal !== undefined && invVal !== null) return { value: invVal, isFillForward: false };
+                    // Fallback to Yahoo CL (front-month WTI futures ≈ NYMEX settle)
+                    const yahooVal = futuresMap.get(date);
+                    if (yahooVal !== undefined && yahooVal !== null) return { value: yahooVal, isFillForward: false };
+                    if (viewMode === "calendar") {
+                      const ff = getPriceWithFillForward(date, nymexMap, dates);
+                      if (ff.value) return ff;
+                      const ffChart = getPriceWithFillForward(date, chartExportMap, dates);
+                      if (ffChart.value) return ffChart;
+                      return getPriceWithFillForward(date, futuresMap, dates);
+                    }
+                    return { value: null, isFillForward: false };
+                  };
+                  const nymexData = getNymexPrice();
 
-                    // Get NYMEX settlement - prefer nymex, fallback to chartExport, investingCom, then Yahoo CL
-                    const getNymexPrice = () => {
-                      const nymexVal = nymexMap.get(date);
-                      if (nymexVal !== undefined && nymexVal !== null) return { value: nymexVal, isFillForward: false };
-                      const chartVal = chartExportMap.get(date);
-                      if (chartVal !== undefined && chartVal !== null) return { value: chartVal, isFillForward: false };
-                      const invVal = investingComMap.get(date);
-                      if (invVal !== undefined && invVal !== null) return { value: invVal, isFillForward: false };
-                      // Fallback to Yahoo CL (front-month WTI futures ≈ NYMEX settle)
-                      const yahooVal = futuresMap.get(date);
-                      if (yahooVal !== undefined && yahooVal !== null) return { value: yahooVal, isFillForward: false };
-                      if (viewMode === "calendar") {
-                        const ff = getPriceWithFillForward(date, nymexMap, dates);
-                        if (ff.value) return ff;
-                        const ffChart = getPriceWithFillForward(date, chartExportMap, dates);
-                        if (ffChart.value) return ffChart;
-                        return getPriceWithFillForward(date, futuresMap, dates);
-                      }
-                      return { value: null, isFillForward: false };
-                    };
-                    const nymexData = getNymexPrice();
+                  // Calculate estimated net price (using $2.50 transport as default)
+                  const transport = 2.50;
+                  // Use NYMEX settlement if available, otherwise futures
+                  const basePrice = nymexData.value || futuresData.value;
+                  const netPrice = basePrice && midlandData.value
+                    ? basePrice + midlandData.value - transport
+                    : null;
 
-                    // Calculate estimated net price (using $2.50 transport as default)
-                    const transport = 2.50;
-                    // Use NYMEX settlement if available, otherwise futures
-                    const basePrice = nymexData.value || futuresData.value;
-                    const netPrice = basePrice && midlandData.value
-                      ? basePrice + midlandData.value - transport
-                      : null;
+                  // Format date with day of week
+                  const { dayName, dateFormatted } = formatDisplayDate(date);
 
-                    // Format date with day of week
-                    const { dayName, dateFormatted } = formatDisplayDate(date);
-
-                    return (
-                      <tr
-                        key={date}
-                        className={`${weekend ? "bg-slate-100" : i % 2 === 0 ? "bg-white" : "bg-slate-50"}`}
-                      >
-                        <td className="px-4 py-3 text-sm font-medium">
-                          <span className={weekend ? "text-slate-400" : "text-slate-800"}>
-                            {dateFormatted} {dayName}
-                          </span>
-                          {weekend && (
-                            <span className="ml-2 text-xs text-slate-400">(Wknd)</span>
-                          )}
-                        </td>
-                        <td className={`px-4 py-3 text-sm text-right font-medium ${wtiIndexData.isFillForward ? "text-amber-400 italic" : "text-amber-700"}`}>
+                  return (
+                    <tr key={date} className={weekend ? "bg-slate-100 hover:bg-blue-50/50 transition-colors" : TR}>
+                      <td className={TD}>
+                        <span className={`font-medium ${weekend ? "text-slate-400" : "text-slate-800"}`}>
+                          {dateFormatted} {dayName}
+                        </span>
+                        {weekend && <span className="ml-2 text-xs text-slate-400">(Wknd)</span>}
+                      </td>
+                      <td className={`${TD_NUM} bg-amber-50/50`}>
+                        <span className={`font-medium ${wtiIndexData.isFillForward ? "text-amber-400 italic" : "text-amber-700"}`}>
                           {wtiIndexData.value ? `$${wtiIndexData.value.toFixed(2)}` : "--"}
-                        </td>
-                        <td className={`px-4 py-3 text-sm text-right ${eiaData.isFillForward ? "text-slate-400 italic" : "text-slate-800"}`}>
+                        </span>
+                      </td>
+                      <td className={TD_NUM}>
+                        <span className={eiaData.isFillForward ? "text-slate-400 italic" : "text-slate-800"}>
                           {eiaData.value ? `$${eiaData.value.toFixed(2)}` : "--"}
-                        </td>
-                        <td className={`px-4 py-3 text-sm text-right ${nymexData.isFillForward ? "text-slate-400 italic" : "text-amber-700 font-medium"}`}>
+                        </span>
+                      </td>
+                      <td className={TD_NUM}>
+                        <span className={nymexData.isFillForward ? "text-slate-400 italic" : "text-amber-700 font-medium"}>
                           {nymexData.value ? `$${nymexData.value.toFixed(2)}` : "--"}
-                        </td>
-                        <td className={`px-4 py-3 text-sm text-right ${futuresData.isFillForward ? "text-slate-400 italic" : "text-slate-800"}`}>
+                        </span>
+                      </td>
+                      <td className={TD_NUM}>
+                        <span className={futuresData.isFillForward ? "text-slate-400 italic" : "text-slate-800"}>
                           {futuresData.value ? `$${futuresData.value.toFixed(2)}` : "--"}
-                        </td>
-                        <td className={`px-4 py-3 text-sm text-right ${midlandData.isFillForward ? "italic" : ""}`}>
-                          {midlandData.value ? (
-                            <span className={midlandData.isFillForward ? "text-slate-400" : midlandData.value >= 0 ? "text-green-600" : "text-red-600"}>
-                              {midlandData.value >= 0 ? "+" : ""}${midlandData.value.toFixed(2)}
-                            </span>
-                          ) : "--"}
-                        </td>
-                        <td className={`px-4 py-3 text-sm font-medium text-right ${(nymexData.isFillForward && futuresData.isFillForward) || midlandData.isFillForward ? "text-slate-400 italic" : "text-blue-600"}`}>
+                        </span>
+                      </td>
+                      <td className={`${TD_NUM} ${midlandData.isFillForward ? "italic" : ""}`}>
+                        {midlandData.value ? (
+                          <span className={midlandData.isFillForward ? "text-slate-400" : midlandData.value >= 0 ? "text-good" : "text-bad"}>
+                            {midlandData.value >= 0 ? "+" : ""}${midlandData.value.toFixed(2)}
+                          </span>
+                        ) : "--"}
+                      </td>
+                      <td className={TD_NUM}>
+                        <span className={`font-medium ${(nymexData.isFillForward && futuresData.isFillForward) || midlandData.isFillForward ? "text-slate-400 italic" : "text-blue-600"}`}>
                           {netPrice ? `$${netPrice.toFixed(2)}` : "--"}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
                 </tbody>
-              </table>
-            </div>
-
-            {/* Table Footer */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
-              <div className="flex justify-between items-center text-sm text-slate-500">
-                <span>Showing {Math.min(dates.length, daysToShow)} of {dates.length} records</span>
-                {prices?.fetchedAt && (
-                  <span>Last updated: {new Date(prices.fetchedAt).toLocaleString()}</span>
-                )}
-              </div>
-            </div>
+            </table>
           </div>
-
-          {/* Data Sources Note */}
-          <div className="mt-6 p-4 bg-slate-50 rounded-lg">
-            <h3 className="text-sm font-medium text-slate-700 mb-2">Data Sources</h3>
-            <ul className="text-xs text-slate-500 space-y-1">
-              <li><strong>WTI Index</strong> - Consolidated reference price (EIA → FRED → NYMEX Settle → Yahoo CL)</li>
-              <li><strong>WTI Spot (EIA)</strong> - U.S. Energy Information Administration RWTC series</li>
-              <li><strong>NYMEX Settle</strong> - NYMEX WTI settlement price (Argus historical + imported files)</li>
-              <li><strong>WTI Futures (CL)</strong> - CME NYMEX front-month (NYMEX Settle → Yahoo CL fallback)</li>
-              <li><strong>Midland Diff</strong> - WTI Midland vs WTI differential (Argus → Yahoo WTT fallback)</li>
-              <li><strong>Est. Net Price</strong> - (NYMEX Settle or Futures) + Midland Diff - $2.50 Transport</li>
-            </ul>
-            {viewMode === "calendar" && (
-              <p className="mt-3 text-xs text-slate-400 italic">
-                * Italicized values on weekends/holidays use the previous trading day&apos;s price (fill-forward).
-              </p>
-            )}
+          <div className="flex flex-wrap justify-between items-center gap-2 px-4 py-2.5 bg-slate-50 border-t border-line text-xs text-slate-500">
+            <span>Showing {Math.min(dates.length, daysToShow)} of {dates.length} records</span>
+            {prices?.fetchedAt && <span>Last updated: {new Date(prices.fetchedAt).toLocaleString()}</span>}
           </div>
-        </div>
-      </div>
+        </Panel>
+
+        {/* Data Sources Note */}
+        <Panel title="Data Sources">
+          <ul className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-x-6 gap-y-1.5 text-xs text-slate-500">
+            <li><strong className="text-slate-700">WTI Index</strong> - Consolidated reference price (EIA → FRED → NYMEX Settle → Yahoo CL)</li>
+            <li><strong className="text-slate-700">WTI Spot (EIA)</strong> - U.S. Energy Information Administration RWTC series</li>
+            <li><strong className="text-slate-700">NYMEX Settle</strong> - NYMEX WTI settlement price (Argus historical + imported files)</li>
+            <li><strong className="text-slate-700">WTI Futures (CL)</strong> - CME NYMEX front-month (NYMEX Settle → Yahoo CL fallback)</li>
+            <li><strong className="text-slate-700">Midland Diff</strong> - WTI Midland vs WTI differential (Argus → Yahoo WTT fallback)</li>
+            <li><strong className="text-slate-700">Est. Net Price</strong> - (NYMEX Settle or Futures) + Midland Diff - $2.50 Transport</li>
+          </ul>
+          {viewMode === "calendar" && (
+            <p className="mt-3 text-xs text-slate-400 italic">
+              * Italicized values on weekends/holidays use the previous trading day&apos;s price (fill-forward).
+            </p>
+          )}
+        </Panel>
+      </Page>
     </DashboardLayout>
   );
 }

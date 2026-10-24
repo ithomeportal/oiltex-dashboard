@@ -42,7 +42,7 @@ export default function TransportAllocationTable() {
         <h2 className="text-lg font-semibold text-slate-800">Transport allocation by product</h2>
         <p className="text-sm text-slate-500">Shared capacity is allocated once per transporter.</p>
       </div>
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full">
           <thead className="bg-slate-50">
             <tr>

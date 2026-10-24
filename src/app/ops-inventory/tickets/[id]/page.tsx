@@ -4,7 +4,13 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import DashboardLayout from "@/components/DashboardLayout";
+import { Page } from "@/components/ui/Page";
+import { Panel } from "@/components/ui/Panel";
+import { KpiTile } from "@/components/ui/KpiTile";
+import { StateBlock } from "@/components/ui/Controls";
+import { BTN_SECONDARY, BTN_SUCCESS, INPUT, KPI_GRID_4, LABEL } from "@/components/ui/styles";
 import type { OilTicket } from "@/lib/ticket-types";
+import { PdfIcon } from "../../_components/ticketCells";
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "--";
@@ -205,9 +211,7 @@ export default function TicketDetailPage() {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="p-8 flex justify-center items-center min-h-[400px]">
-          <p className="text-slate-400">Loading ticket...</p>
-        </div>
+        <StateBlock kind="loading" height="min-h-[400px]">Loading ticket...</StateBlock>
       </DashboardLayout>
     );
   }
@@ -215,161 +219,150 @@ export default function TicketDetailPage() {
   if (error || !ticket) {
     return (
       <DashboardLayout>
-        <div className="p-8">
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-              <p className="text-red-700">{error || "Ticket not found"}</p>
-              <button
-                onClick={() => router.push("/ops-inventory/tickets")}
-                className="mt-4 text-sm text-blue-600 hover:underline"
-              >
-                Back to Tickets
-              </button>
-            </div>
+        <Page title="Ticket">
+          <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+            <p className="text-red-700">{error || "Ticket not found"}</p>
+            <button
+              type="button"
+              onClick={() => router.push("/ops-inventory/tickets")}
+              className="mt-4 text-sm text-blue-600 hover:underline"
+            >
+              Back to Tickets
+            </button>
           </div>
-        </div>
+        </Page>
       </DashboardLayout>
     );
   }
 
+  const subtitle = (
+    <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <Link href="/ops-inventory/tickets" className="text-blue-600 hover:underline">
+        &larr; Back to Tickets
+      </Link>
+      <span>
+        {ticket.shipper_name} &rarr; {ticket.receiver_name} &middot; {formatDate(ticket.ticket_date)}
+      </span>
+      {ticket.file_url && (
+        <a
+          href={ticket.file_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="View original PDF"
+          className="inline-flex items-center text-red-500 hover:text-red-700 transition-colors"
+        >
+          <PdfIcon className="w-5 h-5" />
+        </a>
+      )}
+    </span>
+  );
+
+  const actions = editing ? (
+    <>
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={saving || Object.keys(editFields).length === 0}
+        className={BTN_SUCCESS}
+      >
+        {saving ? "Saving..." : "Save Changes"}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setEditing(false);
+          setEditFields({});
+        }}
+        className={BTN_SECONDARY}
+      >
+        Cancel
+      </button>
+    </>
+  ) : (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap bg-amber-500 text-white hover:bg-amber-600"
+    >
+      Edit Ticket
+    </button>
+  );
+
   return (
     <DashboardLayout>
-      <div className="p-8">
-        <div className="max-w-5xl mx-auto">
-          {/* Header */}
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <Link
-                href="/ops-inventory/tickets"
-                className="text-sm text-blue-600 hover:underline mb-2 inline-block"
-              >
-                &larr; Back to Tickets
-              </Link>
-              <h1 className="text-2xl font-bold text-slate-800">
-                Ticket #{ticket.ticket_number}
-              </h1>
-              <p className="text-slate-500 text-sm mt-1 flex items-center gap-2">
-                <span>{ticket.shipper_name} &rarr; {ticket.receiver_name} &middot; {formatDate(ticket.ticket_date)}</span>
-                {ticket.file_url && (
-                  <a
-                    href={ticket.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="View original PDF"
-                    className="inline-flex items-center text-red-500 hover:text-red-700 transition-colors"
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z" />
-                      <path d="M8 12h3v1.5H9.5v1H11V16H8v-1.5h1.5v-1H8V12zm4 0h2c.55 0 1 .45 1 1v2c0 .55-.45 1-1 1h-2v-4zm1.5 1.5v1h.5v-1h-.5zM16 12h2v1.5h-1v.5h1V16h-2v-1.5h1v-.5h-1V12z" />
-                    </svg>
-                  </a>
-                )}
-              </p>
+      <Page title={`Ticket #${ticket.ticket_number}`} subtitle={subtitle} actions={actions}>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+          {/* Left: ticket data / inline edit form */}
+          <div className="space-y-5 min-w-0">
+            <div className={KPI_GRID_4}>
+              <KpiTile label="Loaded BBLs" value={formatNum(ticket.loaded_barrels, 2)} tone="warn" />
+              <KpiTile label="Net BBLs" value={formatNum(ticket.net_barrels, 2)} tone="good" />
+              <KpiTile label="Delivered BBLs" value={formatNum(ticket.delivered_bbls, 2)} tone="accent" />
+              <KpiTile
+                label="Gravity / BS&W"
+                value={`${formatNum(ticket.obs_gravity, 1)} / ${formatNum(ticket.bsw_percent, 2)}%`}
+              />
             </div>
-            <div className="flex gap-2">
-              {editing ? (
-                <>
-                  <button
-                    onClick={handleSave}
-                    disabled={saving || Object.keys(editFields).length === 0}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
-                  >
-                    {saving ? "Saving..." : "Save Changes"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditing(false);
-                      setEditFields({});
-                    }}
-                    className="bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm hover:bg-slate-300"
-                  >
-                    Cancel
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={() => setEditing(true)}
-                  className="bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-600"
-                >
-                  Edit Ticket
-                </button>
-              )}
-            </div>
+
+            {fieldSections.map((section) => (
+              <Panel key={section.title} title={section.title}>
+                <div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-x-4 gap-y-3">
+                  {section.fields.map(({ key, label, format }) => {
+                    const editable = editing && key !== "manually_corrected" && key !== "extraction_confidence";
+                    const inputId = `field-${key}`;
+                    return (
+                      <div key={key} className="min-w-0">
+                        <label htmlFor={editable ? inputId : undefined} className={LABEL}>
+                          {label}
+                        </label>
+                        {editable ? (
+                          <input
+                            id={inputId}
+                            type="text"
+                            defaultValue={ticket[key as keyof OilTicket]?.toString() ?? ""}
+                            onChange={(e) =>
+                              setEditFields((prev) => ({ ...prev, [key]: e.target.value }))
+                            }
+                            className={`${INPUT} ${editFields[key] !== undefined ? "!border-amber-400 !bg-amber-50" : ""}`}
+                          />
+                        ) : (
+                          <p className="text-sm text-slate-800 font-medium break-words tabular-nums">
+                            {getDisplayValue(key, format)}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </Panel>
+            ))}
           </div>
 
-          {/* Highlight Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <HighlightCard label="Loaded BBLs" value={formatNum(ticket.loaded_barrels, 2)} color="amber" />
-            <HighlightCard label="Net BBLs" value={formatNum(ticket.net_barrels, 2)} color="green" />
-            <HighlightCard label="Delivered BBLs" value={formatNum(ticket.delivered_bbls, 2)} color="blue" />
-            <HighlightCard label="Gravity / BS&W" value={`${formatNum(ticket.obs_gravity, 1)} / ${formatNum(ticket.bsw_percent, 2)}%`} color="purple" />
-          </div>
-
-          {/* Field Sections */}
-          {fieldSections.map((section) => (
-            <div key={section.title} className="bg-white rounded-xl shadow-sm border border-slate-200 mb-6">
-              <div className="px-6 py-4 border-b border-slate-200">
-                <h2 className="text-base font-semibold text-slate-800">{section.title}</h2>
-              </div>
-              <div className="p-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {section.fields.map(({ key, label, format }) => (
-                  <div key={key}>
-                    <label className="block text-xs font-medium text-slate-500 mb-1">{label}</label>
-                    {editing && key !== "manually_corrected" && key !== "extraction_confidence" ? (
-                      <input
-                        type="text"
-                        defaultValue={ticket[key as keyof OilTicket]?.toString() ?? ""}
-                        onChange={(e) =>
-                          setEditFields((prev) => ({ ...prev, [key]: e.target.value }))
-                        }
-                        className={`w-full px-3 py-2 border rounded-lg text-sm ${
-                          editFields[key] !== undefined
-                            ? "border-amber-400 bg-amber-50"
-                            : "border-slate-300"
-                        }`}
-                      />
-                    ) : (
-                      <p className="text-sm text-slate-800 font-medium">
-                        {getDisplayValue(key, format)}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+          {/* Right: original PDF */}
+          <Panel
+            title="Original Ticket PDF"
+            flush
+            className="xl:sticky xl:top-4"
+            actions={
+              ticket.file_url ? (
+                <a href={ticket.file_url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
+                  Open in new tab
+                </a>
+              ) : undefined
+            }
+          >
+            {ticket.file_url ? (
+              <iframe
+                title={`Ticket ${ticket.ticket_number ?? ""} PDF`}
+                src={ticket.file_url}
+                className="w-full h-[80vh] border-0 bg-slate-50"
+              />
+            ) : (
+              <StateBlock kind="empty" height="h-[40vh]">No PDF attached to this ticket</StateBlock>
+            )}
+          </Panel>
         </div>
-      </div>
+      </Page>
     </DashboardLayout>
-  );
-}
-
-function HighlightCard({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: string;
-  color: string;
-}) {
-  const colors: Record<string, string> = {
-    amber: "border-amber-200 bg-amber-50",
-    green: "border-green-200 bg-green-50",
-    blue: "border-blue-200 bg-blue-50",
-    purple: "border-purple-200 bg-purple-50",
-  };
-  const textColors: Record<string, string> = {
-    amber: "text-amber-700",
-    green: "text-green-700",
-    blue: "text-blue-700",
-    purple: "text-purple-700",
-  };
-
-  return (
-    <div className={`rounded-xl border p-4 ${colors[color] ?? ""}`}>
-      <p className="text-xs text-slate-500 mb-1">{label}</p>
-      <p className={`text-xl font-bold ${textColors[color] ?? ""}`}>{value}</p>
-    </div>
   );
 }

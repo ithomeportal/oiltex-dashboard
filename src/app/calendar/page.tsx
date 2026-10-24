@@ -2,6 +2,20 @@
 
 import { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { Page } from "@/components/ui/Page";
+import { Panel } from "@/components/ui/Panel";
+import { Field } from "@/components/ui/Controls";
+import {
+  BTN_SECONDARY,
+  CARD,
+  SELECT,
+  STICKY_HEAD,
+  TABLE,
+  TABLE_SCROLL,
+  TD,
+  TH,
+  TR,
+} from "@/components/ui/styles";
 
 // NYMEX holidays 2026
 const NYMEX_HOLIDAYS_2026: Record<string, string> = {
@@ -228,6 +242,17 @@ const MONTH_NAMES = [
 
 const DAY_NAMES = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
+/** Legend chips — swatches mirror the day-cell colours below. */
+const LEGEND: readonly { label: string; swatch: string; text?: string }[] = [
+  { label: "Trade Period", swatch: "bg-blue-100 border-2 border-blue-500" },
+  { label: "Last Trading Day", swatch: "bg-orange-500" },
+  { label: "First Notice Day", swatch: "bg-red-500" },
+  { label: "NYMEX Holiday", swatch: "bg-green-200 border border-green-400" },
+  { label: "Weekend", swatch: "bg-slate-100 border border-slate-200" },
+  { label: "Today", swatch: "bg-yellow-200 border-2 border-yellow-400" },
+  { label: "Trade Month Start/End", swatch: "bg-fuchsia-100 border-2 border-fuchsia-400 text-fuchsia-700", text: "26" },
+];
+
 export default function CalendarPage() {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
@@ -240,245 +265,225 @@ export default function CalendarPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6">
-        <div className="max-w-full mx-auto">
-          {/* Header */}
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800">US Crude Oil Trading Calendar {selectedYear}</h1>
-              <p className="text-slate-500 text-sm mt-1">
-                WTI Futures contract dates, trade periods, and NYMEX holidays
-              </p>
+      <Page
+        title={`US Crude Oil Trading Calendar ${selectedYear}`}
+        subtitle="WTI Futures contract dates, trade periods, and NYMEX holidays"
+        toolbar={
+          <>
+            <Field label="Year" htmlFor="calendar-year">
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setSelectedYear(selectedYear - 1)}
+                  className={BTN_SECONDARY}
+                  aria-label="Previous year"
+                >
+                  ←
+                </button>
+                <select
+                  id="calendar-year"
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className={`${SELECT} w-28 font-semibold`}
+                >
+                  {[2025, 2026, 2027, 2028].map((year) => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setSelectedYear(selectedYear + 1)}
+                  className={BTN_SECONDARY}
+                  aria-label="Next year"
+                >
+                  →
+                </button>
+              </div>
+            </Field>
+            <div className="flex flex-wrap items-center gap-2 pb-1 lg:ml-auto" aria-label="Legend">
+              {LEGEND.map((item) => (
+                <span
+                  key={item.label}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-2.5 py-1 text-xs text-slate-600"
+                >
+                  <span
+                    className={`w-5 h-5 rounded flex items-center justify-center text-[11px] font-bold ${item.swatch}`}
+                  >
+                    {item.text}
+                  </span>
+                  {item.label}
+                </span>
+              ))}
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSelectedYear(selectedYear - 1)}
-                className="px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
-              >
-                ←
-              </button>
-              <select
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 bg-white font-semibold"
-              >
-                {[2025, 2026, 2027, 2028].map((year) => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
-              </select>
-              <button
-                onClick={() => setSelectedYear(selectedYear + 1)}
-                className="px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
-              >
-                →
-              </button>
-            </div>
-          </div>
+          </>
+        }
+      >
+        {/* Calendar Grid: 1 → 2 → 3 → 4 → 6 columns */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 min-[1760px]:grid-cols-6 gap-4">
+          {Array.from({ length: 12 }, (_, monthIndex) => {
+            const weeks = generateMonthCalendar(selectedYear, monthIndex, contracts);
 
-          {/* Legend */}
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 mb-6">
-            <div className="flex flex-wrap items-center gap-6 text-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-blue-100 border-2 border-blue-500"></div>
-                <span className="text-slate-600">Trade Period</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-orange-500"></div>
-                <span className="text-slate-600">Last Trading Day</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-red-500"></div>
-                <span className="text-slate-600">First Notice Day</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-green-200 border border-green-400"></div>
-                <span className="text-slate-600">NYMEX Holiday</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-slate-100"></div>
-                <span className="text-slate-600">Weekend</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-yellow-200 border-2 border-yellow-400"></div>
-                <span className="text-slate-600">Today</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-fuchsia-100 border-2 border-fuchsia-400 flex items-center justify-center text-[8px] font-bold text-fuchsia-700">26</div>
-                <span className="text-slate-600">Trade Month Start/End</span>
-              </div>
-            </div>
-          </div>
+            return (
+              <div key={monthIndex} className={`${CARD} overflow-hidden`}>
+                {/* Month Header */}
+                <div className="bg-slate-50 border-b border-line text-slate-800 px-3 py-2 text-center text-sm font-semibold">
+                  {MONTH_NAMES[monthIndex]}
+                </div>
 
-          {/* Calendar Grid - 4 columns x 3 rows */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {Array.from({ length: 12 }, (_, monthIndex) => {
-              const weeks = generateMonthCalendar(selectedYear, monthIndex, contracts);
+                {/* Day Headers */}
+                <div className="grid grid-cols-7 border-b border-slate-100">
+                  {DAY_NAMES.map((day) => (
+                    <div key={day} className="text-center text-xs font-semibold text-slate-500 py-1.5">
+                      {day}
+                    </div>
+                  ))}
+                </div>
 
-              return (
-                <div key={monthIndex} className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-                  {/* Month Header */}
-                  <div className="bg-slate-700 text-white px-3 py-2 text-center font-semibold">
-                    {MONTH_NAMES[monthIndex]}
-                  </div>
+                {/* Calendar Days */}
+                <div className="p-1">
+                  {weeks.map((week, weekIndex) => (
+                    <div key={weekIndex} className="grid grid-cols-7">
+                      {week.map((day, dayIndex) => {
+                        const isCurrentMonth = day.date.getMonth() === monthIndex;
+                        const isToday = day.dateStr === todayStr;
+                        const inTradePeriod = day.tradePeriods.length > 0;
 
-                  {/* Day Headers */}
-                  <div className="grid grid-cols-7 bg-slate-100 border-b border-slate-200">
-                    {DAY_NAMES.map((day) => (
-                      <div key={day} className="text-center text-xs font-medium text-slate-500 py-1">
-                        {day}
-                      </div>
-                    ))}
-                  </div>
+                        let bgColor = "bg-white";
+                        let textColor = isCurrentMonth ? "text-slate-800" : "text-slate-300";
+                        let border = "";
 
-                  {/* Calendar Days */}
-                  <div className="p-1">
-                    {weeks.map((week, weekIndex) => (
-                      <div key={weekIndex} className="grid grid-cols-7">
-                        {week.map((day, dayIndex) => {
-                          const isCurrentMonth = day.date.getMonth() === monthIndex;
-                          const isToday = day.dateStr === todayStr;
-                          const inTradePeriod = day.tradePeriods.length > 0;
+                        // Bold the trade month start (26th) and end (25th) days with fuchsia color
+                        const isTradeMonthBoundary = day.isTradeMonthStart.length > 0 || day.isTradeMonthEnd.length > 0;
+                        const extraClasses = isCurrentMonth && isTradeMonthBoundary ? "font-bold" : "";
 
-                          let bgColor = "bg-white";
-                          let textColor = isCurrentMonth ? "text-slate-800" : "text-slate-300";
-                          let border = "";
-
-                          // Bold the trade month start (26th) and end (25th) days with fuchsia color
-                          const isTradeMonthBoundary = day.isTradeMonthStart.length > 0 || day.isTradeMonthEnd.length > 0;
-                          const extraClasses = isCurrentMonth && isTradeMonthBoundary ? "font-bold" : "";
-
-                          if (isCurrentMonth) {
-                            // Apply fuchsia styling for trade month boundaries (26th/25th)
-                            if (isTradeMonthBoundary) {
-                              textColor = "text-fuchsia-700";
-                              bgColor = "bg-fuchsia-100";
-                            }
-
-                            if (isToday) {
-                              bgColor = "bg-yellow-200";
-                              border = "ring-2 ring-yellow-400";
-                            } else if (day.isLastTradingDay) {
-                              bgColor = "bg-orange-500";
-                              textColor = "text-white";
-                            } else if (day.isFirstNoticeDay) {
-                              bgColor = "bg-red-500";
-                              textColor = "text-white";
-                            } else if (day.isHoliday) {
-                              bgColor = "bg-green-200";
-                              border = "border border-green-400";
-                            } else if (day.isWeekend) {
-                              bgColor = isTradeMonthBoundary ? "bg-fuchsia-100" : "bg-slate-100";
-                              textColor = isTradeMonthBoundary ? "text-fuchsia-700" : "text-slate-400";
-                            } else if (isTradeMonthBoundary) {
-                              // Already set above, just need border
-                              border = "border-l-2 border-r-2 border-fuchsia-400";
-                            } else if (inTradePeriod) {
-                              bgColor = "bg-blue-100";
-                              border = "border-l-2 border-r-2 border-blue-400";
-                            }
+                        if (isCurrentMonth) {
+                          // Apply fuchsia styling for trade month boundaries (26th/25th)
+                          if (isTradeMonthBoundary) {
+                            textColor = "text-fuchsia-700";
+                            bgColor = "bg-fuchsia-100";
                           }
 
-                          return (
-                            <div
-                              key={dayIndex}
-                              className={`relative h-7 flex items-center justify-center text-xs font-medium ${bgColor} ${textColor} ${border} ${extraClasses}`}
-                              title={
-                                day.isLastTradingDay
-                                  ? `Last Trading Day: ${day.isLastTradingDay}`
-                                  : day.isFirstNoticeDay
-                                  ? `First Notice Day: ${day.isFirstNoticeDay}`
-                                  : day.isHoliday
-                                  ? day.holidayName
-                                  : day.isTradeMonthStart.length > 0
-                                  ? `Trade Month Start: ${day.isTradeMonthStart.join(", ")}`
-                                  : day.isTradeMonthEnd.length > 0
-                                  ? `Trade Month End: ${day.isTradeMonthEnd.join(", ")}`
-                                  : day.tradePeriods.length > 0
-                                  ? `Trade Period: ${day.tradePeriods.join(", ")}`
-                                  : ""
-                              }
-                            >
-                              {day.date.getDate()}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
+                          if (isToday) {
+                            bgColor = "bg-yellow-200";
+                            border = "ring-2 ring-yellow-400";
+                          } else if (day.isLastTradingDay) {
+                            bgColor = "bg-orange-500";
+                            textColor = "text-white";
+                          } else if (day.isFirstNoticeDay) {
+                            bgColor = "bg-red-500";
+                            textColor = "text-white";
+                          } else if (day.isHoliday) {
+                            bgColor = "bg-green-200";
+                            border = "border border-green-400";
+                          } else if (day.isWeekend) {
+                            bgColor = isTradeMonthBoundary ? "bg-fuchsia-100" : "bg-slate-100";
+                            textColor = isTradeMonthBoundary ? "text-fuchsia-700" : "text-slate-400";
+                          } else if (isTradeMonthBoundary) {
+                            // Already set above, just need border
+                            border = "border-l-2 border-r-2 border-fuchsia-400";
+                          } else if (inTradePeriod) {
+                            bgColor = "bg-blue-100";
+                            border = "border-l-2 border-r-2 border-blue-400";
+                          }
+                        }
+
+                        return (
+                          <div
+                            key={dayIndex}
+                            className={`relative h-9 flex items-center justify-center text-sm font-medium tabular-nums ${bgColor} ${textColor} ${border} ${extraClasses}`}
+                            title={
+                              day.isLastTradingDay
+                                ? `Last Trading Day: ${day.isLastTradingDay}`
+                                : day.isFirstNoticeDay
+                                ? `First Notice Day: ${day.isFirstNoticeDay}`
+                                : day.isHoliday
+                                ? day.holidayName
+                                : day.isTradeMonthStart.length > 0
+                                ? `Trade Month Start: ${day.isTradeMonthStart.join(", ")}`
+                                : day.isTradeMonthEnd.length > 0
+                                ? `Trade Month End: ${day.isTradeMonthEnd.join(", ")}`
+                                : day.tradePeriods.length > 0
+                                ? `Trade Period: ${day.tradePeriods.join(", ")}`
+                                : ""
+                            }
+                          >
+                            {day.date.getDate()}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
-              );
-            })}
-          </div>
-
-          {/* Contract Table */}
-          <div className="mt-8 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
-              <h3 className="text-lg font-semibold text-slate-800">
-                {selectedYear} Contract Details
-              </h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Contract</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Delivery</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Trade Period</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Last Trading</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">First Notice</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {contracts.slice(0, 12).map((contract, i) => {
-                    const monthCodes = ["F", "G", "H", "J", "K", "M", "N", "Q", "U", "V", "X", "Z"];
-                    const code = `CL${monthCodes[contract.contractMonth]}${String(contract.contractYear).slice(-2)}`;
-                    const isActive = today >= contract.tradeMonthStart && today <= contract.tradeMonthEnd;
-
-                    return (
-                      <tr key={i} className={isActive ? "bg-blue-50" : i % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
-                        <td className="px-4 py-2 font-mono font-semibold text-slate-800">{code}</td>
-                        <td className="px-4 py-2 text-slate-700">
-                          {MONTH_NAMES[contract.contractMonth]} {contract.contractYear}
-                        </td>
-                        <td className="px-4 py-2 text-slate-600">
-                          {contract.tradeMonthStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - {contract.tradeMonthEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                        </td>
-                        <td className="px-4 py-2">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded bg-orange-100 text-orange-800 text-xs font-medium">
-                            {contract.lastTradingDay.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded bg-red-100 text-red-800 text-xs font-medium">
-                            {contract.firstNoticeDay.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Disclaimer */}
-          <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-xs text-amber-800">
-              <strong>Disclaimer:</strong> Dates are calculated programmatically based on CME Group rules.
-              Always verify critical dates against the official CME Group calendar at{" "}
-              <a
-                href="https://www.cmegroup.com/tools-information/calendars/expiration-calendar.html"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
-              >
-                cmegroup.com
-              </a>
-              . Holiday schedules and exceptional circumstances may affect actual trading dates.
-            </p>
-          </div>
+              </div>
+            );
+          })}
         </div>
-      </div>
+
+        {/* Contract Table */}
+        <Panel title={`${selectedYear} Contract Details`} flush>
+          <div className={TABLE_SCROLL}>
+            <table className={TABLE}>
+              <thead className={STICKY_HEAD}>
+                <tr>
+                  <th className={TH}>Contract</th>
+                  <th className={TH}>Delivery</th>
+                  <th className={TH}>Trade Period</th>
+                  <th className={TH}>Last Trading</th>
+                  <th className={TH}>First Notice</th>
+                </tr>
+              </thead>
+              <tbody>
+                {contracts.slice(0, 12).map((contract, i) => {
+                  const monthCodes = ["F", "G", "H", "J", "K", "M", "N", "Q", "U", "V", "X", "Z"];
+                  const code = `CL${monthCodes[contract.contractMonth]}${String(contract.contractYear).slice(-2)}`;
+                  const isActive = today >= contract.tradeMonthStart && today <= contract.tradeMonthEnd;
+
+                  return (
+                    <tr key={i} className={isActive ? "bg-blue-50 hover:bg-blue-100/60 transition-colors" : TR}>
+                      <td className={TD}>
+                        <span className="font-mono font-semibold text-slate-800">{code}</span>
+                      </td>
+                      <td className={TD}>
+                        {MONTH_NAMES[contract.contractMonth]} {contract.contractYear}
+                      </td>
+                      <td className={TD}>
+                        <span className="text-slate-600">
+                          {contract.tradeMonthStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - {contract.tradeMonthEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        </span>
+                      </td>
+                      <td className={TD}>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded bg-orange-100 text-orange-800 text-xs font-medium">
+                          {contract.lastTradingDay.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </span>
+                      </td>
+                      <td className={TD}>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded bg-red-100 text-red-800 text-xs font-medium">
+                          {contract.firstNoticeDay.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+
+        {/* Disclaimer */}
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+          <p className="text-xs text-amber-800">
+            <strong>Disclaimer:</strong> Dates are calculated programmatically based on CME Group rules.
+            Always verify critical dates against the official CME Group calendar at{" "}
+            <a
+              href="https://www.cmegroup.com/tools-information/calendars/expiration-calendar.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              cmegroup.com
+            </a>
+            . Holiday schedules and exceptional circumstances may affect actual trading dates.
+          </p>
+        </div>
+      </Page>
     </DashboardLayout>
   );
 }

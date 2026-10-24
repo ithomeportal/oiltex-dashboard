@@ -47,7 +47,7 @@ export default function ProductTable() {
         </div>
         <span className="text-xs font-semibold tracking-wider text-slate-400">LITERS / {period.unit.toUpperCase()}</span>
       </div>
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full">
           <thead className="bg-slate-50">
             <tr>

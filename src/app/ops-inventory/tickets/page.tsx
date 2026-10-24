@@ -4,19 +4,32 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import DashboardLayout from "@/components/DashboardLayout";
+import { Page } from "@/components/ui/Page";
+import { Panel } from "@/components/ui/Panel";
+import { Field, Segmented, StateBlock } from "@/components/ui/Controls";
+import {
+  BTN_DANGER,
+  BTN_PRIMARY,
+  BTN_SECONDARY,
+  BTN_SM,
+  BTN_SUCCESS,
+  INPUT,
+  SELECT,
+  STICKY_HEAD,
+  TABLE,
+  TABLE_SCROLL,
+  TD,
+  TD_NUM,
+  TH,
+  TH_NUM,
+  TR,
+} from "@/components/ui/styles";
+import { DASH, fmtDayDate, fmtNum } from "@/lib/format";
 import type { OilTicket } from "@/lib/ticket-types";
+import { PdfIcon, PdfLink, tint } from "../_components/ticketCells";
 
-function formatTicketDate(dateStr: string | null): string {
-  if (!dateStr) return "--";
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return "--";
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
+/** Segmented value meaning "no month selected" (the All button). */
+const ALL_KEY = "__all__";
 
 function getMonthRange(year: number, month: number): { from: string; to: string } {
   const from = `${year}-${String(month + 1).padStart(2, "0")}-01`;
@@ -55,7 +68,7 @@ const ALL_MONTHS = getAllMonths(2025, 9);
 
 export default function TicketsPage() {
   return (
-    <Suspense fallback={<DashboardLayout><div className="p-8 text-center text-slate-400">Loading...</div></DashboardLayout>}>
+    <Suspense fallback={<DashboardLayout><StateBlock kind="loading">Loading...</StateBlock></DashboardLayout>}>
       <TicketsPageContent />
     </Suspense>
   );
@@ -216,314 +229,229 @@ function TicketsPageContent() {
     setPage(1);
   };
 
+  const olderActive = olderMonths.find((m) => m.key === activeMonthKey);
+  const segmentValue = activeMonthKey === "" ? ALL_KEY : olderActive ? "" : activeMonthKey;
+  const monthOptions = [
+    ...recentMonths.map((m) => ({ value: m.key, label: m.label })),
+    { value: ALL_KEY, label: "All" },
+  ];
+  const onMonthSegment = (key: string) => {
+    if (key === ALL_KEY) {
+      clearFilters();
+      return;
+    }
+    const selected = recentMonths.find((m) => m.key === key);
+    if (selected) selectMonth(selected.year, selected.month, selected.key);
+  };
+
+  const actions = (
+    <>
+      <button
+        type="button"
+        onClick={downloadTicketsSummary}
+        disabled={exportingExcel || !activeMonthKey}
+        className={BTN_SUCCESS}
+      >
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z" />
+          <path d="M8 13h8v1.5H8V13zm0 3h6v1.5H8V16zm0-6h8v1.5H8V10z" />
+        </svg>
+        {exportingExcel ? "Exporting..." : "Tickets Summary"}
+      </button>
+      <button
+        type="button"
+        onClick={downloadConsolidatedPdf}
+        disabled={consolidating || !activeMonthKey}
+        className={BTN_DANGER}
+      >
+        <PdfIcon />
+        {consolidating ? "Generating..." : "Consolidated PDF"}
+      </button>
+      <button type="button" onClick={fetchTickets} disabled={loading} className={BTN_SECONDARY}>
+        {loading ? "Loading..." : "Refresh"}
+      </button>
+    </>
+  );
+
+  const toolbar = (
+    <>
+      <Field label="Month">
+        <Segmented options={monthOptions} value={segmentValue} onChange={onMonthSegment} ariaLabel="Month quick filter" />
+      </Field>
+      {olderMonths.length > 0 && (
+        <Field label="Older months" htmlFor="tickets-older" className="w-40">
+          <select
+            id="tickets-older"
+            value={olderActive ? activeMonthKey : ""}
+            onChange={(e) => {
+              const selected = olderMonths.find((m) => m.key === e.target.value);
+              if (selected) selectMonth(selected.year, selected.month, selected.key);
+            }}
+            className={`${SELECT} cursor-pointer ${olderActive ? "border-blue-500 ring-2 ring-blue-500/30 font-medium" : ""}`}
+          >
+            <option value="" disabled>
+              {olderActive ? olderActive.label : "Older..."}
+            </option>
+            {olderMonths.map((mb) => (
+              <option key={mb.key} value={mb.key}>
+                {mb.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
+    </>
+  );
+
   return (
     <DashboardLayout>
-      <div className="p-8">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800">Oil Tickets</h1>
-              <p className="text-slate-500 text-sm mt-1">
-                Search and view all extracted ticket data
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={downloadTicketsSummary}
-                disabled={exportingExcel || !activeMonthKey}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 flex items-center gap-1.5"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z" />
-                  <path d="M8 13h8v1.5H8V13zm0 3h6v1.5H8V16zm0-6h8v1.5H8V10z" />
-                </svg>
-                {exportingExcel ? "Exporting..." : "Tickets Summary"}
-              </button>
-              <button
-                onClick={downloadConsolidatedPdf}
-                disabled={consolidating || !activeMonthKey}
-                className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50 flex items-center gap-1.5"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z" />
-                  <path d="M8 12h3v1.5H9.5v1H11V16H8v-1.5h1.5v-1H8V12zm4 0h2c.55 0 1 .45 1 1v2c0 .55-.45 1-1 1h-2v-4zm1.5 1.5v1h.5v-1h-.5zM16 12h2v1.5h-1v.5h1V16h-2v-1.5h1v-.5h-1V12z" />
-                </svg>
-                {consolidating ? "Generating..." : "Consolidated PDF"}
-              </button>
-              <button
-                onClick={fetchTickets}
-                disabled={loading}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-              >
-                {loading ? "Loading..." : "Refresh"}
-              </button>
-            </div>
-          </div>
-
-          {/* Month Quick Filter */}
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider mr-1">Month</span>
-            {recentMonths.map((mb) => (
-              <button
-                key={mb.key}
-                onClick={() => selectMonth(mb.year, mb.month, mb.key)}
-                className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
-                  activeMonthKey === mb.key
-                    ? "bg-blue-600 text-white"
-                    : "bg-white text-slate-600 border border-slate-300 hover:bg-slate-50"
-                }`}
-              >
-                {mb.label}
-              </button>
-            ))}
-            {olderMonths.length > 0 && (
-              <select
-                value={olderMonths.some((m) => m.key === activeMonthKey) ? activeMonthKey : ""}
-                onChange={(e) => {
-                  const selected = olderMonths.find((m) => m.key === e.target.value);
-                  if (selected) selectMonth(selected.year, selected.month, selected.key);
-                }}
-                className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors cursor-pointer ${
-                  olderMonths.some((m) => m.key === activeMonthKey)
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "bg-white text-slate-500 border border-slate-300 hover:bg-slate-50"
-                }`}
-              >
-                <option value="" disabled>
-                  {olderMonths.some((m) => m.key === activeMonthKey)
-                    ? olderMonths.find((m) => m.key === activeMonthKey)?.label
-                    : "Older..."}
-                </option>
-                {olderMonths.map((mb) => (
-                  <option key={mb.key} value={mb.key}>
-                    {mb.label}
-                  </option>
-                ))}
-              </select>
-            )}
-            <button
-              onClick={clearFilters}
-              className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
-                activeMonthKey === ""
-                  ? "bg-slate-800 text-white"
-                  : "bg-white text-slate-500 border border-slate-300 hover:bg-slate-50"
-              }`}
-            >
-              All
-            </button>
-          </div>
-
-          {/* Filter Bar */}
-          <form onSubmit={handleSearch} className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">From</label>
+      <Page title="Oil Tickets" subtitle="Search and view all extracted ticket data" actions={actions} toolbar={toolbar}>
+        <Panel title="Filters">
+          <form onSubmit={handleSearch}>
+            <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+              <Field label="From" htmlFor="tf-from">
                 <input
+                  id="tf-from"
                   type="date"
                   value={dateFrom}
                   onChange={(e) => { setDateFrom(e.target.value); setActiveMonthKey(""); }}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                  className={INPUT}
                 />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">To</label>
+              </Field>
+              <Field label="To" htmlFor="tf-to">
                 <input
+                  id="tf-to"
                   type="date"
                   value={dateTo}
                   onChange={(e) => { setDateTo(e.target.value); setActiveMonthKey(""); }}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                  className={INPUT}
                 />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Shipper</label>
-                <input
-                  type="text"
-                  value={shipper}
-                  onChange={(e) => setShipper(e.target.value)}
-                  placeholder="Well name"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Operator</label>
-                <input
-                  type="text"
-                  value={operator}
-                  onChange={(e) => setOperator(e.target.value)}
-                  placeholder="Operator"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">County</label>
-                <input
-                  type="text"
-                  value={county}
-                  onChange={(e) => setCounty(e.target.value)}
-                  placeholder="County"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">State</label>
-                <input
-                  type="text"
-                  value={state}
-                  onChange={(e) => setState(e.target.value)}
-                  placeholder="NM"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Search</label>
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Ticket#, BOL#, driver..."
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                />
-              </div>
+              </Field>
+              <Field label="Shipper" htmlFor="tf-shipper">
+                <input id="tf-shipper" type="text" value={shipper} onChange={(e) => setShipper(e.target.value)} placeholder="Well name" className={INPUT} />
+              </Field>
+              <Field label="Operator" htmlFor="tf-operator">
+                <input id="tf-operator" type="text" value={operator} onChange={(e) => setOperator(e.target.value)} placeholder="Operator" className={INPUT} />
+              </Field>
+              <Field label="County" htmlFor="tf-county">
+                <input id="tf-county" type="text" value={county} onChange={(e) => setCounty(e.target.value)} placeholder="County" className={INPUT} />
+              </Field>
+              <Field label="State" htmlFor="tf-state">
+                <input id="tf-state" type="text" value={state} onChange={(e) => setState(e.target.value)} placeholder="NM" className={INPUT} />
+              </Field>
+              <Field label="Search" htmlFor="tf-search">
+                <input id="tf-search" type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Ticket#, BOL#, driver..." className={INPUT} />
+              </Field>
             </div>
             <div className="flex justify-end gap-2 mt-3">
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="text-sm text-slate-500 hover:text-slate-700 px-3 py-1.5"
-              >
+              <button type="button" onClick={clearFilters} className={BTN_SECONDARY}>
                 Clear
               </button>
-              <button
-                type="submit"
-                className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700"
-              >
+              <button type="submit" className={BTN_PRIMARY}>
                 Search
               </button>
             </div>
           </form>
+        </Panel>
 
-          {/* Tickets Table */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase">Date</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase">Ticket #</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase">BOL #</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase">Shipper</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase">Receiver</th>
-                    <th className="px-3 py-3 text-right text-xs font-medium text-slate-500 uppercase">Loaded</th>
-                    <th className="px-3 py-3 text-right text-xs font-medium text-slate-500 uppercase">Net</th>
-                    <th className="px-3 py-3 text-right text-xs font-medium text-slate-500 uppercase">Delivered</th>
-                    <th className="px-3 py-3 text-right text-xs font-medium text-slate-500 uppercase">Gravity</th>
-                    <th className="px-3 py-3 text-right text-xs font-medium text-slate-500 uppercase">BS&W%</th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase">Driver</th>
-                    <th className="px-3 py-3 text-center text-xs font-medium text-slate-500 uppercase">PDF</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {tickets.length > 0 ? (
-                    tickets.map((ticket, i) => (
-                      <tr key={ticket.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50"}>
-                        <td className="px-3 py-3 text-sm text-slate-800">
-                          {formatTicketDate(ticket.ticket_date)}
-                        </td>
-                        <td className="px-3 py-3 text-sm font-medium text-blue-600">
-                          <Link
-                            href={`/ops-inventory/tickets/${ticket.id}`}
-                            className="hover:underline"
-                          >
-                            {ticket.ticket_number ?? "--"}
-                          </Link>
-                        </td>
-                        <td className="px-3 py-3 text-sm text-slate-600">
-                          {ticket.bol_number ?? "--"}
-                        </td>
-                        <td className="px-3 py-3 text-sm text-slate-800 max-w-[200px] truncate">
-                          {ticket.shipper_name ?? "--"}
-                        </td>
-                        <td className="px-3 py-3 text-sm text-slate-600 max-w-[200px] truncate">
-                          {ticket.receiver_name ?? "--"}
-                        </td>
-                        <td className="px-3 py-3 text-sm text-right text-slate-800">
-                          {ticket.loaded_barrels != null ? Number(ticket.loaded_barrels).toFixed(2) : "--"}
-                        </td>
-                        <td className="px-3 py-3 text-sm text-right text-slate-800">
-                          {ticket.net_barrels != null ? Number(ticket.net_barrels).toFixed(2) : "--"}
-                        </td>
-                        <td className="px-3 py-3 text-sm text-right font-medium text-blue-600">
-                          {ticket.delivered_bbls != null ? Number(ticket.delivered_bbls).toFixed(2) : "--"}
-                        </td>
-                        <td className="px-3 py-3 text-sm text-right text-slate-800">
-                          {ticket.obs_gravity != null ? Number(ticket.obs_gravity).toFixed(1) : "--"}
-                        </td>
-                        <td className="px-3 py-3 text-sm text-right text-slate-800">
-                          {ticket.bsw_percent != null ? Number(ticket.bsw_percent).toFixed(2) : "--"}
-                        </td>
-                        <td className="px-3 py-3 text-sm text-slate-600 max-w-[120px] truncate">
-                          {ticket.driver_name ?? "--"}
-                        </td>
-                        <td className="px-3 py-3 text-center">
-                          {ticket.file_url ? (
-                            <a
-                              href={ticket.file_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title="View original PDF"
-                              className="inline-flex items-center justify-center text-red-500 hover:text-red-700 transition-colors"
-                            >
-                              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z" />
-                                <path d="M8 12h3v1.5H9.5v1H11V16H8v-1.5h1.5v-1H8V12zm4 0h2c.55 0 1 .45 1 1v2c0 .55-.45 1-1 1h-2v-4zm1.5 1.5v1h.5v-1h-.5zM16 12h2v1.5h-1v.5h1V16h-2v-1.5h1v-.5h-1V12z" />
-                              </svg>
-                            </a>
-                          ) : (
-                            <span className="text-slate-300">--</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={12} className="px-4 py-8 text-center text-sm text-slate-400">
-                        {loading ? "Loading tickets..." : "No tickets found"}
+        <Panel flush>
+          <div className={TABLE_SCROLL}>
+            <table className={TABLE}>
+              <thead className={STICKY_HEAD}>
+                <tr>
+                  <th className={TH}>Date</th>
+                  <th className={TH}>Ticket #</th>
+                  <th className={TH}>BOL #</th>
+                  <th className={TH}>Shipper</th>
+                  <th className={TH}>Receiver</th>
+                  <th className={TH_NUM}>Loaded</th>
+                  <th className={TH_NUM}>Net</th>
+                  <th className={TH_NUM}>Delivered</th>
+                  <th className={TH_NUM}>Gravity</th>
+                  <th className={TH_NUM}>BS&amp;W%</th>
+                  <th className={TH}>Driver</th>
+                  <th className={`${TH} text-center`}>PDF</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tickets.length > 0 ? (
+                  tickets.map((ticket) => (
+                    <tr key={ticket.id} className={TR}>
+                      <td className={tint(TD, "text-slate-800")}>{fmtDayDate(ticket.ticket_date)}</td>
+                      <td className={tint(TD, "font-medium text-blue-600")}>
+                        <Link href={`/ops-inventory/tickets/${ticket.id}`} className="hover:underline">
+                          {ticket.ticket_number ?? DASH}
+                        </Link>
+                      </td>
+                      <td className={tint(TD, "text-slate-600")}>{ticket.bol_number ?? DASH}</td>
+                      <td
+                        className={`${tint(TD, "text-slate-800")} max-w-[360px] truncate`}
+                        title={ticket.shipper_name ?? undefined}
+                      >
+                        {ticket.shipper_name ?? DASH}
+                      </td>
+                      <td
+                        className={`${tint(TD, "text-slate-600")} max-w-[360px] truncate`}
+                        title={ticket.receiver_name ?? undefined}
+                      >
+                        {ticket.receiver_name ?? DASH}
+                      </td>
+                      <td className={tint(TD_NUM, "text-slate-800")}>{fmtNum(ticket.loaded_barrels, 2)}</td>
+                      <td className={tint(TD_NUM, "text-slate-800")}>{fmtNum(ticket.net_barrels, 2)}</td>
+                      <td className={tint(TD_NUM, "font-medium text-blue-600")}>{fmtNum(ticket.delivered_bbls, 2)}</td>
+                      <td className={tint(TD_NUM, "text-slate-800")}>{fmtNum(ticket.obs_gravity, 1)}</td>
+                      <td className={tint(TD_NUM, "text-slate-800")}>{fmtNum(ticket.bsw_percent, 2)}</td>
+                      <td
+                        className={`${tint(TD, "text-slate-600")} max-w-[240px] truncate`}
+                        title={ticket.driver_name ?? undefined}
+                      >
+                        {ticket.driver_name ?? DASH}
+                      </td>
+                      <td className={`${TD} text-center`}>
+                        <PdfLink url={ticket.file_url} />
                       </td>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={12} className="px-4 py-8 text-center text-sm text-slate-400">
+                      {loading ? "Loading tickets..." : "No tickets found"}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
-            {/* Pagination */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
-              <span className="text-sm text-slate-500">
-                Showing {tickets.length} of {total} tickets
+          {/* Pagination */}
+          <div className="px-4 py-3 bg-slate-50 border-t border-line flex flex-wrap justify-between items-center gap-2">
+            <span className="text-sm text-slate-500 tabular-nums">
+              Showing {tickets.length} of {total} tickets
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className={BTN_SM}
+              >
+                Previous
+              </button>
+              <span className="px-2 text-sm text-slate-600 tabular-nums">
+                Page {page} of {totalPages || 1}
               </span>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg hover:bg-slate-100 disabled:opacity-50"
-                >
-                  Previous
-                </button>
-                <span className="px-3 py-1.5 text-sm text-slate-600">
-                  Page {page} of {totalPages || 1}
-                </span>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages}
-                  className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg hover:bg-slate-100 disabled:opacity-50"
-                >
-                  Next
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className={BTN_SM}
+              >
+                Next
+              </button>
             </div>
           </div>
-        </div>
-      </div>
+        </Panel>
+      </Page>
     </DashboardLayout>
   );
 }

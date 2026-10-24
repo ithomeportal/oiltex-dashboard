@@ -16,7 +16,7 @@ export default function SenerOverviewPage() {
       </div>
       <StageCards />
       <BalancePanel />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8 *:min-w-0">
         <ProductTable />
         <DropTile variant="overview" />
       </div>

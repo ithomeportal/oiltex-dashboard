@@ -64,29 +64,31 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 sm:p-10 w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-slate-800">OilTex Dashboard</h1>
-          <p className="text-slate-500 mt-2">Price Dashboard</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-900">OilTex Dashboard</h1>
+          <p className="text-sm text-slate-500 mt-2">Price Dashboard</p>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg mb-6" role="alert">
             {error}
           </div>
         )}
 
         {step === "email" ? (
           <form onSubmit={handleSendCode}>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label htmlFor="login-email" className="block text-sm font-medium text-slate-700 mb-2">
               Email Address
             </label>
             <input
+              id="login-email"
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-slate-800"
+              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none transition text-slate-800 placeholder:text-slate-400"
               required
             />
             <button
@@ -99,18 +101,21 @@ export default function LoginPage() {
           </form>
         ) : (
           <form onSubmit={handleVerifyCode}>
-            <p className="text-slate-600 mb-4">
+            <p className="text-sm text-slate-600 mb-4">
               We sent an 8-digit code to <strong>{email}</strong>
             </p>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label htmlFor="login-code" className="block text-sm font-medium text-slate-700 mb-2">
               Verification Code
             </label>
             <input
+              id="login-code"
               type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
               placeholder="Enter 8-digit code"
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-slate-800 text-center text-2xl tracking-widest"
+              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none transition text-slate-800 placeholder:text-slate-400 text-center text-2xl tracking-widest tabular-nums"
               maxLength={8}
               required
             />
