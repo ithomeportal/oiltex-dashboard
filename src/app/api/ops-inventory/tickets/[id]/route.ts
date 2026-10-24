@@ -7,7 +7,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const ticketId = parseInt(id, 10);
+    // Digits only: parseInt("5.png") === 5 would otherwise accept junk ids.
+    const ticketId = /^\d+$/.test(id) ? Number(id) : NaN;
     if (isNaN(ticketId)) {
       return NextResponse.json(
         { success: false, error: "Invalid ticket ID" },
@@ -39,7 +40,8 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const ticketId = parseInt(id, 10);
+    // Digits only: parseInt("5.png") === 5 would otherwise accept junk ids.
+    const ticketId = /^\d+$/.test(id) ? Number(id) : NaN;
     if (isNaN(ticketId)) {
       return NextResponse.json(
         { success: false, error: "Invalid ticket ID" },

@@ -13,6 +13,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [email, setEmail] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [senerOnly, setSenerOnly] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/session")
@@ -21,6 +22,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         setAuthenticated(data.authenticated);
         if (data.email) setEmail(data.email);
         if (data.isAdmin) setIsAdmin(data.isAdmin);
+        setSenerOnly(data.scope === "sener");
         if (!data.authenticated) {
           router.push("/login");
         }
@@ -46,7 +48,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <Sidebar email={email} isAdmin={isAdmin} onLogout={handleLogout} />
+      <Sidebar email={email} isAdmin={isAdmin} senerOnly={senerOnly} onLogout={handleLogout} />
       <main className="ml-64">
         {children}
       </main>

@@ -163,7 +163,7 @@ function generateMonthCalendar(year: number, month: number, contracts: ContractD
 
   const monthCodes = ["F", "G", "H", "J", "K", "M", "N", "Q", "U", "V", "X", "Z"];
 
-  let currentDate = new Date(startDate);
+  const currentDate = new Date(startDate);
 
   while (currentDate <= lastDay || currentDate.getDay() !== 0) {
     const week: DayInfo[] = [];
@@ -345,7 +345,7 @@ export default function CalendarPage() {
 
                           // Bold the trade month start (26th) and end (25th) days with fuchsia color
                           const isTradeMonthBoundary = day.isTradeMonthStart.length > 0 || day.isTradeMonthEnd.length > 0;
-                          let extraClasses = isCurrentMonth && isTradeMonthBoundary ? "font-bold" : "";
+                          const extraClasses = isCurrentMonth && isTradeMonthBoundary ? "font-bold" : "";
 
                           if (isCurrentMonth) {
                             // Apply fuchsia styling for trade month boundaries (26th/25th)

@@ -4,10 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import SenerNavGroup from "./SenerNavGroup";
 
 interface SidebarProps {
   email: string;
   isAdmin: boolean;
+  senerOnly?: boolean; // external SENER-scoped account: show only the SENER group
   onLogout: () => void;
 }
 
@@ -25,7 +27,7 @@ const opsNavItems = [
   { href: "/ops-inventory/transport-orders", label: "Transp. Orders", icon: "transport" },
 ] as const;
 
-export default function Sidebar({ email, isAdmin, onLogout }: SidebarProps) {
+export default function Sidebar({ email, isAdmin, senerOnly = false, onLogout }: SidebarProps) {
   const pathname = usePathname();
   const isOpsActive = pathname.startsWith("/ops-inventory");
   const [opsExpanded, setOpsExpanded] = useState(isOpsActive);
@@ -45,118 +47,130 @@ export default function Sidebar({ email, isAdmin, onLogout }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 p-4 overflow-y-auto">
-        <ul className="space-y-2">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive
-                      ? "bg-blue-600 text-white"
-                      : "text-slate-300 hover:bg-slate-700 hover:text-white"
-                  }`}
-                >
-                  <NavIcon icon={item.icon} />
-                  {item.label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-
-        {/* Divider */}
-        <div className="my-4 border-t border-slate-700" />
-
-        {/* Argus Section */}
-        <ul className="space-y-2 mb-2">
-          <li>
-            <Link
-              href="/argus-archive"
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                pathname === "/argus-archive"
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
-              }`}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-              </svg>
-              Argus Archive
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/argus-pricing"
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                pathname === "/argus-pricing"
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
-              }`}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Argus Pricing
-            </Link>
-          </li>
-        </ul>
-
-        {/* Divider */}
-        <div className="my-4 border-t border-slate-700" />
-
-        {/* OPs Inventory Section */}
-        <div>
-          <button
-            onClick={() => setOpsExpanded((prev) => !prev)}
-            className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
-              isOpsActive
-                ? "bg-slate-700 text-white"
-                : "text-slate-300 hover:bg-slate-700 hover:text-white"
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              {/* Warehouse icon */}
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
-              </svg>
-              <span className="font-medium text-sm">OPs Inventory</span>
-            </div>
-            {/* Chevron */}
-            <svg
-              className={`w-4 h-4 transition-transform ${opsExpanded ? "rotate-180" : ""}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-
-          {opsExpanded && (
-            <ul className="mt-1 ml-4 space-y-1">
-              {opsNavItems.map((item) => {
+        {senerOnly ? (
+          <SenerNavGroup alwaysOpen />
+        ) : (
+          <>
+            <ul className="space-y-2">
+              {navItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors ${
+                      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                         isActive
                           ? "bg-blue-600 text-white"
-                          : "text-slate-400 hover:bg-slate-700 hover:text-white"
+                          : "text-slate-300 hover:bg-slate-700 hover:text-white"
                       }`}
                     >
-                      <OpsNavIcon icon={item.icon} />
+                      <NavIcon icon={item.icon} />
                       {item.label}
                     </Link>
                   </li>
                 );
               })}
             </ul>
-          )}
-        </div>
+
+            {/* Divider */}
+            <div className="my-4 border-t border-slate-700" />
+
+            {/* Argus Section */}
+            <ul className="space-y-2 mb-2">
+              <li>
+                <Link
+                  href="/argus-archive"
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                    pathname === "/argus-archive"
+                      ? "bg-blue-600 text-white"
+                      : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                  }`}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                  </svg>
+                  Argus Archive
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/argus-pricing"
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                    pathname === "/argus-pricing"
+                      ? "bg-blue-600 text-white"
+                      : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                  }`}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Argus Pricing
+                </Link>
+              </li>
+            </ul>
+
+            {/* Divider */}
+            <div className="my-4 border-t border-slate-700" />
+
+            {/* OPs Inventory Section */}
+            <div>
+              <button
+                onClick={() => setOpsExpanded((prev) => !prev)}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
+                  isOpsActive
+                    ? "bg-slate-700 text-white"
+                    : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  {/* Warehouse icon */}
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
+                  </svg>
+                  <span className="font-medium text-sm">OPs Inventory</span>
+                </div>
+                {/* Chevron */}
+                <svg
+                  className={`w-4 h-4 transition-transform ${opsExpanded ? "rotate-180" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {opsExpanded && (
+                <ul className="mt-1 ml-4 space-y-1">
+                  {opsNavItems.map((item) => {
+                    const isActive = pathname === item.href;
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-colors ${
+                            isActive
+                              ? "bg-blue-600 text-white"
+                              : "text-slate-400 hover:bg-slate-700 hover:text-white"
+                          }`}
+                        >
+                          <OpsNavIcon icon={item.icon} />
+                          {item.label}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
+            {/* Divider */}
+            <div className="my-4 border-t border-slate-700" />
+
+            {/* SENER Permits Section */}
+            <SenerNavGroup />
+          </>
+        )}
       </nav>
 
       {/* User Section */}

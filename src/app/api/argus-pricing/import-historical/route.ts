@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
   try {
     let inserted = 0;
     let updated = 0;
-    let skipped = 0;
+    const skipped = 0;
 
     if (source === "file3") {
       // Phase 1: Import argus_pricing + oil_prices from File 3

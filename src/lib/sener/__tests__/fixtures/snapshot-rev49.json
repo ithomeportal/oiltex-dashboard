@@ -1,0 +1,804 @@
+{
+ "note": "Anonymized copy of the Manus SENER workspace snapshot (revision 49, 2026-10-20). Company names, notes, evidence and locations removed. Used only to verify the calculator port reproduces reports/calculation-*.json.",
+ "workspace": {
+  "version": 1,
+  "records": [
+   {
+    "id": "8bedcbec-98b0-4698-8910-6b52bfa2b33f",
+    "company": "Customer 01",
+    "role": "customer",
+    "fuels": [
+     "Diesel"
+    ],
+    "quantity": 120000.0,
+    "unit": "L",
+    "period": "monthly",
+    "status": "active",
+    "validFrom": "",
+    "validUntil": "",
+    "agreement": "Non-binding LOI",
+    "segment": "Private fleet",
+    "stations": null,
+    "sourceId": "doc-01"
+   },
+   {
+    "id": "91329df1-97c0-4ecc-8c20-e861f55c3be7",
+    "company": "Supplier 01",
+    "role": "supplier",
+    "fuels": [
+     "Gasoline",
+     "Diesel"
+    ],
+    "quantity": 4000000.0,
+    "unit": "gal",
+    "period": "monthly",
+    "status": "active",
+    "validFrom": "2026-07-27",
+    "validUntil": "",
+    "agreement": "Non-binding LOI",
+    "segment": "",
+    "stations": null,
+    "sourceId": "doc-02"
+   },
+   {
+    "id": "ae6d1003-8c03-4986-90ca-2d38ffaf9b89",
+    "company": "Transport 01",
+    "role": "transport",
+    "fuels": [
+     "Gasoline",
+     "Diesel"
+    ],
+    "quantity": 160000.0,
+    "unit": "gal",
+    "period": "daily",
+    "status": "active",
+    "validFrom": "2026-08-17",
+    "validUntil": "",
+    "agreement": "Non-binding LOI",
+    "segment": "",
+    "stations": null,
+    "sourceId": "doc-03"
+   },
+   {
+    "id": "888f28c7-6c98-4921-8183-a9bc1ae42a98",
+    "company": "Customer 02",
+    "role": "customer",
+    "fuels": [
+     "Diesel"
+    ],
+    "quantity": 34000.0,
+    "unit": "gal",
+    "period": "monthly",
+    "status": "active",
+    "validFrom": "2026-09-26",
+    "validUntil": "",
+    "agreement": "Non-binding LOI",
+    "segment": "Private fleet",
+    "stations": null,
+    "sourceId": "doc-04"
+   },
+   {
+    "id": "04ebe971-a930-44e5-b472-f8ceb188c69f",
+    "company": "Customer 03",
+    "role": "customer",
+    "fuels": [
+     "Diesel"
+    ],
+    "quantity": 52800.0,
+    "unit": "gal",
+    "period": "monthly",
+    "status": "active",
+    "validFrom": "2026-09-15",
+    "validUntil": "",
+    "agreement": "Non-binding LOI",
+    "segment": "Other",
+    "stations": null,
+    "sourceId": "doc-05"
+   },
+   {
+    "id": "a9720826-2866-407d-a8a1-ead2cf91dbcd",
+    "company": "Customer 04",
+    "role": "customer",
+    "fuels": [
+     "Diesel"
+    ],
+    "quantity": 26000.0,
+    "unit": "gal",
+    "period": "monthly",
+    "status": "active",
+    "validFrom": "2026-09-26",
+    "validUntil": "",
+    "agreement": "Non-binding LOI",
+    "segment": "Station network",
+    "stations": null,
+    "sourceId": "doc-06"
+   },
+   {
+    "id": "d66ea1ca-1f05-4076-ad47-c25c464cdc31",
+    "company": "Customer 05",
+    "role": "customer",
+    "fuels": [
+     "Diesel"
+    ],
+    "quantity": 28000.0,
+    "unit": "gal",
+    "period": "monthly",
+    "status": "active",
+    "validFrom": "2026-09-15",
+    "validUntil": "",
+    "agreement": "Non-binding LOI",
+    "segment": "Private fleet",
+    "stations": null,
+    "sourceId": "doc-07"
+   },
+   {
+    "id": "f8e757a9-b960-4abd-b159-7487b075f140",
+    "company": "Customer 06",
+    "role": "customer",
+    "fuels": [
+     "Gasoline"
+    ],
+    "quantity": 22000.0,
+    "unit": "gal",
+    "period": "monthly",
+    "status": "active",
+    "validFrom": "2026-09-29",
+    "validUntil": "",
+    "agreement": "Non-binding LOI",
+    "segment": "Station network",
+    "stations": null,
+    "sourceId": "doc-08"
+   },
+   {
+    "id": "ec77e84f-f44f-45ef-bcb7-5c064d35e15a",
+    "company": "Customer 07",
+    "role": "customer",
+    "fuels": [
+     "Diesel"
+    ],
+    "quantity": 28000.0,
+    "unit": "gal",
+    "period": "monthly",
+    "status": "active",
+    "validFrom": "2026-10-05",
+    "validUntil": "",
+    "agreement": "Non-binding LOI",
+    "segment": "Other",
+    "stations": null,
+    "sourceId": "doc-09"
+   },
+   {
+    "id": "4cb7cecb-2e3c-4cf3-9669-7adae814e616",
+    "company": "Customer 08",
+    "role": "customer",
+    "fuels": [
+     "Diesel"
+    ],
+    "quantity": 20000.0,
+    "unit": "gal",
+    "period": "monthly",
+    "status": "active",
+    "validFrom": "2026-10-10",
+    "validUntil": "",
+    "agreement": "Non-binding LOI",
+    "segment": "Other",
+    "stations": null,
+    "sourceId": "doc-10"
+   },
+   {
+    "id": "f1c70ae1-9554-4959-9d34-73e302f62d97",
+    "company": "Customer 09",
+    "role": "customer",
+    "fuels": [
+     "Gasoline"
+    ],
+    "quantity": 30000.0,
+    "unit": "gal",
+    "period": "monthly",
+    "status": "active",
+    "validFrom": "2026-09-23",
+    "validUntil": "",
+    "agreement": "Non-binding LOI",
+    "segment": "Station network",
+    "stations": 2,
+    "sourceId": "doc-11"
+   },
+   {
+    "id": "0d5e0992-cc3a-44c2-b308-ae333319b252",
+    "company": "Customer 10",
+    "role": "customer",
+    "fuels": [
+     "Diesel"
+    ],
+    "quantity": 66000.0,
+    "unit": "gal",
+    "period": "monthly",
+    "status": "active",
+    "validFrom": "2026-09-21",
+    "validUntil": "",
+    "agreement": "Non-binding LOI",
+    "segment": "Station network",
+    "stations": null,
+    "sourceId": "doc-12"
+   },
+   {
+    "id": "fa5ee4fa-32b1-4039-97c6-42142d14fb1a",
+    "company": "Customer 11",
+    "role": "customer",
+    "fuels": [
+     "Diesel"
+    ],
+    "quantity": 25000.0,
+    "unit": "gal",
+    "period": "monthly",
+    "status": "active",
+    "validFrom": "2026-10-10",
+    "validUntil": "",
+    "agreement": "Non-binding LOI",
+    "segment": "Other",
+    "stations": null,
+    "sourceId": "doc-13"
+   },
+   {
+    "id": "3ffdd1da-9be0-4c81-b32b-06d805effb27",
+    "company": "Customer 12",
+    "role": "customer",
+    "fuels": [
+     "Gasoline"
+    ],
+    "quantity": 360000.0,
+    "unit": "L",
+    "period": "monthly",
+    "status": "active",
+    "validFrom": "2026-09-25",
+    "validUntil": "",
+    "agreement": "Non-binding LOI",
+    "segment": "Station network",
+    "stations": null,
+    "sourceId": "doc-14",
+    "splitGroupId": "1a789a1a-899f-44fc-afc9-c1e23d9b237b",
+    "manualSplit": true
+   },
+   {
+    "id": "f7b142dc-231f-4f0e-b05f-d62715788d61",
+    "company": "Customer 12",
+    "role": "customer",
+    "fuels": [
+     "Diesel"
+    ],
+    "quantity": 100000.0,
+    "unit": "L",
+    "period": "monthly",
+    "status": "active",
+    "validFrom": "2026-09-25",
+    "validUntil": "",
+    "agreement": "Non-binding LOI",
+    "segment": "Station network",
+    "stations": null,
+    "sourceId": "doc-14",
+    "splitGroupId": "1a789a1a-899f-44fc-afc9-c1e23d9b237b",
+    "manualSplit": true
+   },
+   {
+    "id": "0938d8d4-0e46-4b1f-ad53-461ba21f8c20",
+    "company": "Customer 13",
+    "role": "customer",
+    "fuels": [
+     "Gasoline"
+    ],
+    "quantity": 32000.0,
+    "unit": "gal",
+    "period": "annual",
+    "status": "active",
+    "validFrom": "",
+    "validUntil": "",
+    "agreement": "Non-binding LOI",
+    "segment": "Station network",
+    "stations": null,
+    "splitGroupId": "68deb116-8a8e-44b7-862f-298b3ce1a516",
+    "manualSplit": true,
+    "sourceId": "doc-15"
+   },
+   {
+    "id": "b37659f5-2599-4b32-a247-08bc6c27dde6",
+    "company": "Customer 13",
+    "role": "customer",
+    "fuels": [
+     "Gasoline"
+    ],
+    "quantity": 35000.0,
+    "unit": "gal",
+    "period": "annual",
+    "status": "active",
+    "validFrom": "",
+    "validUntil": "",
+    "agreement": "Non-binding LOI",
+    "segment": "Station network",
+    "stations": null,
+    "sourceId": "doc-15"
+   },
+   {
+    "id": "b1a1a8df-5e92-4ae2-83d7-6608ebb55339",
+    "company": "Customer 13",
+    "role": "customer",
+    "fuels": [
+     "Diesel"
+    ],
+    "quantity": 60000.0,
+    "unit": "gal",
+    "period": "annual",
+    "status": "active",
+    "validFrom": "",
+    "validUntil": "",
+    "agreement": "Non-binding LOI",
+    "segment": "Station network",
+    "stations": null,
+    "sourceId": "doc-15"
+   }
+  ],
+  "documents": [
+   {
+    "id": "doc-01",
+    "name": "doc-01.pdf"
+   },
+   {
+    "id": "doc-02",
+    "name": "doc-02.pdf"
+   },
+   {
+    "id": "doc-03",
+    "name": "doc-03.pdf"
+   },
+   {
+    "id": "doc-04",
+    "name": "doc-04.pdf"
+   },
+   {
+    "id": "doc-05",
+    "name": "doc-05.pdf"
+   },
+   {
+    "id": "doc-06",
+    "name": "doc-06.pdf"
+   },
+   {
+    "id": "doc-07",
+    "name": "doc-07.pdf"
+   },
+   {
+    "id": "doc-08",
+    "name": "doc-08.pdf"
+   },
+   {
+    "id": "doc-09",
+    "name": "doc-09.pdf"
+   },
+   {
+    "id": "doc-10",
+    "name": "doc-10.pdf"
+   },
+   {
+    "id": "doc-11",
+    "name": "doc-11.pdf"
+   },
+   {
+    "id": "doc-12",
+    "name": "doc-12.pdf"
+   },
+   {
+    "id": "doc-13",
+    "name": "doc-13.pdf"
+   },
+   {
+    "id": "doc-14",
+    "name": "doc-14.pdf"
+   },
+   {
+    "id": "doc-15",
+    "name": "doc-15.pdf"
+   }
+  ]
+ },
+ "expected": {
+  "monthly": {
+   "horizon": "monthly",
+   "months": 1,
+   "periodLabel": "Monthly",
+   "projectionBasis": "Currently valid recurring monthly rates multiplied by the selected months; no calendar or expiry proration.",
+   "totals": {
+    "supplier": 15141647.136,
+    "transport": 18169976.5632,
+    "customer": 1876061.9046452001
+   },
+   "gallons": {
+    "supplier": 4000000.0,
+    "transport": 4800000.0,
+    "customer": 495603.12370105943
+   },
+   "matchedLiters": 1876061.9046452,
+   "matchedGallons": 495603.1237010594,
+   "demandCoverage": 100,
+   "aggregateVolumeCoverage": 100,
+   "coverageBasis": "Matched customer liters divided by total customer demand; not supplier utilization.",
+   "unused": {
+    "supplier": 13265585.2313548,
+    "transport": 16293914.6585548,
+    "customer": 2.3283064365386963e-10
+   },
+   "gapsToDemand": {
+    "supplier": 0,
+    "transport": 0,
+    "customer": 0
+   },
+   "uncoveredDemand": 0.0,
+   "unmatchedByFuel": [],
+   "productConstraintGap": 2.3283064365386963e-10,
+   "eligibleProductLiters": 1876061.9046452,
+   "contractTotals": {
+    "supplier": 0.0,
+    "transport": 0.0,
+    "customer": 0.0
+   },
+   "hasSharedSupplierPools": true,
+   "byFuel": [
+    {
+     "fuel": "Diesel",
+     "supply": 15141647.136,
+     "sharedSupply": 15141647.136,
+     "demand": 1298085.2760831998,
+     "matched": 1298085.2760831998,
+     "customers": 11,
+     "customerLines": 11
+    },
+    {
+     "fuel": "Gasoline",
+     "supply": 15141647.136,
+     "sharedSupply": 15141647.136,
+     "demand": 577976.628562,
+     "matched": 577976.628562,
+     "customers": 4,
+     "customerLines": 5
+    }
+   ],
+   "customerCount": 13,
+   "activeCustomerCount": 13,
+   "supplierAllocations": [
+    {
+     "id": "91329df1-97c0-4ecc-8c20-e861f55c3be7",
+     "company": "Supplier 01",
+     "liters": 1876061.904645199,
+     "byFuel": {
+      "Gasoline": 577976.6285619996,
+      "Diesel": 1298085.2760831993
+     }
+    }
+   ],
+   "transportAllocations": [
+    {
+     "id": "ae6d1003-8c03-4986-90ca-2d38ffaf9b89",
+     "company": "Transport 01",
+     "liters": 1876061.9046452008,
+     "byFuel": {
+      "Gasoline": 577976.6285619996,
+      "Diesel": 1298085.2760831993
+     }
+    }
+   ],
+   "counts": {
+    "supplier": 1,
+    "transport": 1,
+    "customer": 16
+   },
+   "activeCounts": {
+    "supplier": 1,
+    "transport": 1,
+    "customer": 16
+   },
+   "excludedIds": [],
+   "bottlenecks": [
+    "customer"
+   ],
+   "conversion": 3.785411784
+  },
+  "quarterly": {
+   "horizon": "quarterly",
+   "months": 3,
+   "periodLabel": "Quarterly",
+   "projectionBasis": "Currently valid recurring monthly rates multiplied by the selected months; no calendar or expiry proration.",
+   "totals": {
+    "supplier": 45424941.408,
+    "transport": 54509929.689600006,
+    "customer": 5628185.7139356
+   },
+   "gallons": {
+    "supplier": 12000000.0,
+    "transport": 14400000.000000002,
+    "customer": 1486809.3711031782
+   },
+   "matchedLiters": 5628185.7139356,
+   "matchedGallons": 1486809.3711031782,
+   "demandCoverage": 100,
+   "aggregateVolumeCoverage": 100,
+   "coverageBasis": "Matched customer liters divided by total customer demand; not supplier utilization.",
+   "unused": {
+    "supplier": 39796755.6940644,
+    "transport": 48881743.97566441,
+    "customer": 0
+   },
+   "gapsToDemand": {
+    "supplier": 0,
+    "transport": 0,
+    "customer": 0
+   },
+   "uncoveredDemand": 0.0,
+   "unmatchedByFuel": [],
+   "productConstraintGap": 0,
+   "eligibleProductLiters": 5628185.7139356,
+   "contractTotals": {
+    "supplier": 0.0,
+    "transport": 0.0,
+    "customer": 0.0
+   },
+   "hasSharedSupplierPools": true,
+   "byFuel": [
+    {
+     "fuel": "Diesel",
+     "supply": 45424941.408,
+     "sharedSupply": 45424941.408,
+     "demand": 3894255.8282496,
+     "matched": 3894255.8282496,
+     "customers": 11,
+     "customerLines": 11
+    },
+    {
+     "fuel": "Gasoline",
+     "supply": 45424941.408,
+     "sharedSupply": 45424941.408,
+     "demand": 1733929.8856859999,
+     "matched": 1733929.8856859999,
+     "customers": 4,
+     "customerLines": 5
+    }
+   ],
+   "customerCount": 13,
+   "activeCustomerCount": 13,
+   "supplierAllocations": [
+    {
+     "id": "91329df1-97c0-4ecc-8c20-e861f55c3be7",
+     "company": "Supplier 01",
+     "liters": 5628185.713935599,
+     "byFuel": {
+      "Gasoline": 1733929.8856860027,
+      "Diesel": 3894255.828249596
+     }
+    }
+   ],
+   "transportAllocations": [
+    {
+     "id": "ae6d1003-8c03-4986-90ca-2d38ffaf9b89",
+     "company": "Transport 01",
+     "liters": 5628185.713935606,
+     "byFuel": {
+      "Gasoline": 1733929.8856860027,
+      "Diesel": 3894255.828249596
+     }
+    }
+   ],
+   "counts": {
+    "supplier": 1,
+    "transport": 1,
+    "customer": 16
+   },
+   "activeCounts": {
+    "supplier": 1,
+    "transport": 1,
+    "customer": 16
+   },
+   "excludedIds": [],
+   "bottlenecks": [
+    "customer"
+   ],
+   "conversion": 3.785411784
+  },
+  "semester": {
+   "horizon": "semester",
+   "months": 6,
+   "periodLabel": "Semester",
+   "projectionBasis": "Currently valid recurring monthly rates multiplied by the selected months; no calendar or expiry proration.",
+   "totals": {
+    "supplier": 90849882.816,
+    "transport": 109019859.37920001,
+    "customer": 11256371.4278712
+   },
+   "gallons": {
+    "supplier": 24000000.0,
+    "transport": 28800000.000000004,
+    "customer": 2973618.7422063565
+   },
+   "matchedLiters": 11256371.4278712,
+   "matchedGallons": 2973618.7422063565,
+   "demandCoverage": 100,
+   "aggregateVolumeCoverage": 100,
+   "coverageBasis": "Matched customer liters divided by total customer demand; not supplier utilization.",
+   "unused": {
+    "supplier": 79593511.3881288,
+    "transport": 97763487.95132881,
+    "customer": 0
+   },
+   "gapsToDemand": {
+    "supplier": 0,
+    "transport": 0,
+    "customer": 0
+   },
+   "uncoveredDemand": 0.0,
+   "unmatchedByFuel": [],
+   "productConstraintGap": 0,
+   "eligibleProductLiters": 11256371.4278712,
+   "contractTotals": {
+    "supplier": 0.0,
+    "transport": 0.0,
+    "customer": 0.0
+   },
+   "hasSharedSupplierPools": true,
+   "byFuel": [
+    {
+     "fuel": "Diesel",
+     "supply": 90849882.816,
+     "sharedSupply": 90849882.816,
+     "demand": 7788511.6564992,
+     "matched": 7788511.6564992,
+     "customers": 11,
+     "customerLines": 11
+    },
+    {
+     "fuel": "Gasoline",
+     "supply": 90849882.816,
+     "sharedSupply": 90849882.816,
+     "demand": 3467859.7713719998,
+     "matched": 3467859.7713719998,
+     "customers": 4,
+     "customerLines": 5
+    }
+   ],
+   "customerCount": 13,
+   "activeCustomerCount": 13,
+   "supplierAllocations": [
+    {
+     "id": "91329df1-97c0-4ecc-8c20-e861f55c3be7",
+     "company": "Supplier 01",
+     "liters": 11256371.427871197,
+     "byFuel": {
+      "Gasoline": 3467859.7713720053,
+      "Diesel": 7788511.656499192
+     }
+    }
+   ],
+   "transportAllocations": [
+    {
+     "id": "ae6d1003-8c03-4986-90ca-2d38ffaf9b89",
+     "company": "Transport 01",
+     "liters": 11256371.427871212,
+     "byFuel": {
+      "Gasoline": 3467859.7713720053,
+      "Diesel": 7788511.656499192
+     }
+    }
+   ],
+   "counts": {
+    "supplier": 1,
+    "transport": 1,
+    "customer": 16
+   },
+   "activeCounts": {
+    "supplier": 1,
+    "transport": 1,
+    "customer": 16
+   },
+   "excludedIds": [],
+   "bottlenecks": [
+    "customer"
+   ],
+   "conversion": 3.785411784
+  },
+  "annual": {
+   "horizon": "annual",
+   "months": 12,
+   "periodLabel": "Annual",
+   "projectionBasis": "Currently valid recurring monthly rates multiplied by the selected months; no calendar or expiry proration.",
+   "totals": {
+    "supplier": 181699765.632,
+    "transport": 218039718.75840002,
+    "customer": 22512742.8557424
+   },
+   "gallons": {
+    "supplier": 48000000.0,
+    "transport": 57600000.00000001,
+    "customer": 5947237.484412713
+   },
+   "matchedLiters": 22512742.8557424,
+   "matchedGallons": 5947237.484412713,
+   "demandCoverage": 100,
+   "aggregateVolumeCoverage": 100,
+   "coverageBasis": "Matched customer liters divided by total customer demand; not supplier utilization.",
+   "unused": {
+    "supplier": 159187022.7762576,
+    "transport": 195526975.90265763,
+    "customer": 0
+   },
+   "gapsToDemand": {
+    "supplier": 0,
+    "transport": 0,
+    "customer": 0
+   },
+   "uncoveredDemand": 0.0,
+   "unmatchedByFuel": [],
+   "productConstraintGap": 0,
+   "eligibleProductLiters": 22512742.8557424,
+   "contractTotals": {
+    "supplier": 0.0,
+    "transport": 0.0,
+    "customer": 0.0
+   },
+   "hasSharedSupplierPools": true,
+   "byFuel": [
+    {
+     "fuel": "Diesel",
+     "supply": 181699765.632,
+     "sharedSupply": 181699765.632,
+     "demand": 15577023.3129984,
+     "matched": 15577023.3129984,
+     "customers": 11,
+     "customerLines": 11
+    },
+    {
+     "fuel": "Gasoline",
+     "supply": 181699765.632,
+     "sharedSupply": 181699765.632,
+     "demand": 6935719.5427439995,
+     "matched": 6935719.5427439995,
+     "customers": 4,
+     "customerLines": 5
+    }
+   ],
+   "customerCount": 13,
+   "activeCustomerCount": 13,
+   "supplierAllocations": [
+    {
+     "id": "91329df1-97c0-4ecc-8c20-e861f55c3be7",
+     "company": "Supplier 01",
+     "liters": 22512742.855742395,
+     "byFuel": {
+      "Gasoline": 6935719.542744011,
+      "Diesel": 15577023.312998384
+     }
+    }
+   ],
+   "transportAllocations": [
+    {
+     "id": "ae6d1003-8c03-4986-90ca-2d38ffaf9b89",
+     "company": "Transport 01",
+     "liters": 22512742.855742425,
+     "byFuel": {
+      "Gasoline": 6935719.542744011,
+      "Diesel": 15577023.312998384
+     }
+    }
+   ],
+   "counts": {
+    "supplier": 1,
+    "transport": 1,
+    "customer": 16
+   },
+   "activeCounts": {
+    "supplier": 1,
+    "transport": 1,
+    "customer": 16
+   },
+   "excludedIds": [],
+   "bottlenecks": [
+    "customer"
+   ],
+   "conversion": 3.785411784
+  }
+ }
+}

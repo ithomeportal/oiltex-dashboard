@@ -1,51 +1,16 @@
+import { randomInt } from "crypto";
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import pool from "@/lib/db";
+import { emailDomain, scopeForEmail } from "@/lib/access";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-/**
- * Company email domains — the Microsoft 365 tenant's verified domains
- * (Graph `GET /domains`). Widened from 3 to 16 on 2026-07-30 so staff on the
- * other tenant domains can sign in.
- *
- * The login OTP is the only recipient-bearing mail this app sends, and this
- * check runs before both the DB insert and the Resend call — so it is the send
- * guard as well as the login gate. Override with ALLOWED_EMAIL_DOMAINS.
- */
-const ORG_EMAIL_DOMAINS = [
-  "hireinternational.com",
-  "itunilink.com",
-  "mencarllc.com",
-  "mencarotr.com",
-  "mspekt.com",
-  "oiltex.com",
-  "otxtransport.com",
-  "otxtransportation.com",
-  "prosperityenergyresources.com",
-  "seekequipment.com",
-  "u-capital.com",
-  "unilinkcapital.com",
-  "unilinkportal.com",
-  "unilinktransportation.com",
-  "unilinktransportationsa.mail.onmicrosoft.com",
-  "unilinktransportationsa.onmicrosoft.com",
-];
-
-const ALLOWED_DOMAINS = process.env.ALLOWED_EMAIL_DOMAINS?.trim()
-  ? process.env.ALLOWED_EMAIL_DOMAINS.split(",")
-      .map((d) => d.trim().toLowerCase().replace(/^@/, ""))
-      .filter(Boolean)
-  : ORG_EMAIL_DOMAINS;
+const MAX_CODES_PER_WINDOW = 3;
 
 function generateCode(): string {
-  // Generate 8-digit numeric code
-  return Math.floor(10000000 + Math.random() * 90000000).toString();
-}
-
-function isAllowedDomain(email: string): boolean {
-  const domain = email.split("@")[1]?.toLowerCase();
-  return ALLOWED_DOMAINS.includes(domain);
+  // 8-digit numeric code from a CSPRNG
+  return randomInt(10000000, 100000000).toString();
 }
 
 export async function POST(request: Request) {
@@ -63,8 +28,9 @@ export async function POST(request: Request) {
     // Normalize email: lowercase and trim whitespace
     const email = rawEmail.toLowerCase().trim();
 
-    // Check if email domain is allowed
-    if (!isAllowedDomain(email)) {
+    // Domain policy (company tenant + named external SENER exemption): src/lib/access.ts
+    if (!scopeForEmail(email)) {
+      console.warn(`send-code: rejected domain ${emailDomain(email) || "(none)"}`);
       return NextResponse.json(
         { success: false, error: "Access restricted to authorized domains only" },
         { status: 403 }
@@ -77,6 +43,18 @@ export async function POST(request: Request) {
     // Save code to database — use DB's NOW() + interval for consistent timestamps
     const client = await pool.connect();
     try {
+      // Throttle: unauthenticated endpoint that sends mail — cap codes per address.
+      const recent = await client.query<{ n: number }>(
+        `SELECT COUNT(*)::int AS n FROM auth_codes
+          WHERE email = $1 AND created_at > NOW() - INTERVAL '10 minutes'`,
+        [email]
+      );
+      if (recent.rows[0].n >= MAX_CODES_PER_WINDOW) {
+        return NextResponse.json(
+          { success: false, error: "Too many codes requested. Please wait 10 minutes and try again." },
+          { status: 429 }
+        );
+      }
       await client.query(
         `INSERT INTO auth_codes (email, code, expires_at)
          VALUES ($1, $2, NOW() + INTERVAL '10 minutes')`,
