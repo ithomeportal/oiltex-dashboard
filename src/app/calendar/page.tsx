@@ -16,128 +16,14 @@ import {
   TH,
   TR,
 } from "@/components/ui/styles";
-
-// NYMEX holidays 2026
-const NYMEX_HOLIDAYS_2026: Record<string, string> = {
-  "2026-01-01": "New Year's Day",
-  "2026-01-19": "MLK Day",
-  "2026-02-16": "Presidents Day",
-  "2026-04-03": "Good Friday",
-  "2026-05-25": "Memorial Day",
-  "2026-07-03": "Independence Day",
-  "2026-09-07": "Labor Day",
-  "2026-11-26": "Thanksgiving",
-  "2026-12-25": "Christmas",
-};
-
-// NYMEX holidays 2027
-const NYMEX_HOLIDAYS_2027: Record<string, string> = {
-  "2027-01-01": "New Year's Day",
-  "2027-01-18": "MLK Day",
-  "2027-02-15": "Presidents Day",
-  "2027-03-26": "Good Friday",
-  "2027-05-31": "Memorial Day",
-  "2027-07-05": "Independence Day",
-  "2027-09-06": "Labor Day",
-  "2027-11-25": "Thanksgiving",
-  "2027-12-24": "Christmas",
-};
-
-const ALL_HOLIDAYS: Record<string, string> = { ...NYMEX_HOLIDAYS_2026, ...NYMEX_HOLIDAYS_2027 };
-
-function isWeekend(date: Date): boolean {
-  const day = date.getDay();
-  return day === 0 || day === 6;
-}
-
-function isHoliday(dateStr: string): boolean {
-  return dateStr in ALL_HOLIDAYS;
-}
-
-function isBusinessDay(date: Date): boolean {
-  const dateStr = formatDateStr(date);
-  return !isWeekend(date) && !isHoliday(dateStr);
-}
-
-function formatDateStr(date: Date): string {
-  return date.toISOString().split("T")[0];
-}
-
-function subtractBusinessDays(date: Date, days: number): Date {
-  const result = new Date(date);
-  let count = 0;
-  while (count < days) {
-    result.setDate(result.getDate() - 1);
-    if (isBusinessDay(result)) {
-      count++;
-    }
-  }
-  return result;
-}
-
-function addBusinessDays(date: Date, days: number): Date {
-  const result = new Date(date);
-  let count = 0;
-  while (count < days) {
-    result.setDate(result.getDate() + 1);
-    if (isBusinessDay(result)) {
-      count++;
-    }
-  }
-  return result;
-}
-
-interface ContractDates {
-  contractMonth: number; // 0-indexed month for delivery
-  contractYear: number;
-  lastTradingDay: Date;
-  firstNoticeDay: Date;
-  tradeMonthStart: Date;
-  tradeMonthEnd: Date;
-}
-
-// Calculate WTI CL contract dates
-function calculateContractDates(year: number, month: number): ContractDates {
-  // Month preceding the contract month
-  let precedingMonth = month - 1;
-  let precedingYear = year;
-  if (precedingMonth < 0) {
-    precedingMonth = 11;
-    precedingYear = year - 1;
-  }
-
-  // 25th of the preceding month
-  const the25th = new Date(precedingYear, precedingMonth, 25);
-
-  // CME Rule for WTI CL:
-  // - If 25th is a business day: LTD = 3 business days before the 25th
-  // - If 25th is NOT a business day: LTD = 4 business days before the 25th
-  const daysToSubtract = isBusinessDay(the25th) ? 3 : 4;
-  const lastTradingDay = subtractBusinessDays(the25th, daysToSubtract);
-
-  // First Notice Day: 1 business day after Last Trading Day
-  const firstNoticeDay = addBusinessDays(lastTradingDay, 1);
-
-  // Trade month period (for Argus pricing)
-  // Runs from 26th of M-2 to 25th of M-1
-  let tradeStartMonth = month - 2;
-  let tradeStartYear = year;
-  if (tradeStartMonth < 0) {
-    tradeStartMonth += 12;
-    tradeStartYear -= 1;
-  }
-  const tradeMonthStart = new Date(tradeStartYear, tradeStartMonth, 26);
-  const tradeMonthEnd = new Date(precedingYear, precedingMonth, 25);
-
-  return {
-    contractMonth: month,
-    contractYear: year,
-    lastTradingDay,
-    firstNoticeDay,
-    tradeMonthStart,
-    tradeMonthEnd,
-  };
-}
+import {
+  NYMEX_HOLIDAYS,
+  calculateContractDates,
+  formatDateStr,
+  isHoliday,
+  isWeekend,
+  type ContractDates,
+} from "@/lib/nymex-calendar";
 
 // Generate all contract dates for a year
 function generateYearContracts(year: number): ContractDates[] {
@@ -189,7 +75,7 @@ function generateMonthCalendar(year: number, month: number, contracts: ContractD
         dateStr,
         isWeekend: isWeekend(currentDate),
         isHoliday: isHoliday(dateStr),
-        holidayName: ALL_HOLIDAYS[dateStr],
+        holidayName: NYMEX_HOLIDAYS[dateStr],
         tradePeriods: [],
         isTradeMonthStart: [],
         isTradeMonthEnd: [],
