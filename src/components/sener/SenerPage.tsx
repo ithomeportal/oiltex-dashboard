@@ -39,10 +39,7 @@ export default function SenerPage({ title, subtitle, children }: Props) {
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <span className="text-xs text-slate-500">
-          <span className="font-semibold text-slate-600">SHARED WORKSPACE</span> · Signed-in OilTex users can view and edit
-        </span>
+      <div className="flex flex-wrap items-center justify-end gap-3 mb-3">
         <div className="flex flex-wrap items-center gap-3">
           <label className="inline-flex items-center gap-2 text-sm text-slate-600">
             <Icon name="layers" />
