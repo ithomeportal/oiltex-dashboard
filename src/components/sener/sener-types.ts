@@ -32,6 +32,7 @@ export type ModalState =
   | { kind: "splits"; record: SenerRecord | null; onSave?: SaveRows; draftRows?: SenerRecord[]; draftKey?: string }
   | { kind: "review"; error?: string }
   | { kind: "source"; docId: string }
+  | { kind: "removeDoc"; docId: string }
   | { kind: "info" }
   | { kind: "clear" }
   | { kind: "import"; incoming: SenerWorkspace }

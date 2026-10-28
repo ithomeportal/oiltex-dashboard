@@ -8,7 +8,7 @@ import ReviewModal from "./ReviewModal";
 import OriginalViewer from "./OriginalViewer";
 import DraftsModal from "./DraftsModal";
 import { FailureModal, ProgressModal, UploadModal } from "./IntakeModals";
-import { ClearModal, ImportModal, InfoModal, SourceModal } from "./WorkspaceModals";
+import { ClearModal, ImportModal, InfoModal, RemoveDocumentModal, SourceModal } from "./WorkspaceModals";
 
 let modalSeq = 0;
 const modalKeys = new WeakMap<object, number>();
@@ -56,6 +56,9 @@ export default function ModalHost() {
         break;
       case "source":
         content = <SourceModal key={key} docId={modal.docId} />;
+        break;
+      case "removeDoc":
+        content = <RemoveDocumentModal key={key} docId={modal.docId} />;
         break;
       case "info":
         content = <InfoModal key={key} />;

@@ -6,6 +6,7 @@ import { fetchHistory, type HistoryEntry } from "@/lib/sener/client";
 import { errorMessage } from "@/lib/sener/ui-helpers";
 import { useSener } from "./SenerContext";
 import { mergeWorkspaces } from "./import-merge";
+import { removeDocumentMutator } from "./intake-ops";
 import { BTN_DANGER, BTN_OUTLINE, BTN_PRIMARY, Modal, Notice } from "./ui";
 
 const count = (v: number | unknown[]) => (Array.isArray(v) ? v.length : v);
@@ -218,6 +219,69 @@ export function SourceModal({ docId }: { docId: string }) {
       <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap bg-slate-50 border border-slate-200 rounded-lg p-4 text-xs text-slate-700">
         {doc.text || "No extracted text stored for this document."}
       </pre>
+    </Modal>
+  );
+}
+
+/** Removes one unregistered, idle LOI (failed, pending or duplicate upload) from the shared register. */
+export function RemoveDocumentModal({ docId }: { docId: string }) {
+  const { closeModal, ws, workspace, drafts, intake, toast } = useSener();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const doc = workspace.documents.find((d) => d.id === docId);
+
+  const remove = async () => {
+    if (intake.extractionRef.current?.docId === docId) {
+      setError("Finish or close the current review of this LOI first.");
+      return;
+    }
+    if (intake.busyRef.current) {
+      setError("Wait for your current upload or analysis to finish first.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await ws.mutate(removeDocumentMutator(docId));
+      drafts.remove("extraction", docId);
+      closeModal();
+      toast("Document removed from the shared register.");
+    } catch (e) {
+      setError(errorMessage(e));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      title="Remove this document?"
+      subtitle="It disappears from LOI Documents for everyone."
+      onClose={() => !busy && closeModal()}
+      footer={
+        <>
+          <span />
+          <div className="flex gap-2">
+            <button type="button" className={BTN_OUTLINE} disabled={busy} onClick={closeModal}>
+              Keep document
+            </button>
+            <button type="button" className={BTN_DANGER} disabled={busy || !doc} onClick={() => void remove()}>
+              Remove document
+            </button>
+          </div>
+        </>
+      }
+    >
+      {doc ? (
+        <>
+          <strong className="text-slate-800 break-all">{doc.name}</strong>
+          <p className="text-sm text-slate-600">
+            No volume records are registered from this letter, so balances do not change. The stored original is not erased and
+            the previous revision stays in change history.
+          </p>
+        </>
+      ) : (
+        <Notice tone="amber">This document is no longer in the shared register.</Notice>
+      )}
+      {error && <Notice tone="red">{error}</Notice>}
     </Modal>
   );
 }

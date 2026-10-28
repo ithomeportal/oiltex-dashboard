@@ -1,11 +1,15 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { HORIZONS, type Horizon } from "@/lib/sener/types";
 import { ALL_PRODUCTS, pendingUploads, projectionNote } from "@/lib/sener/ui-helpers";
 import { useSener } from "./SenerContext";
 import { BTN_PRIMARY, Icon, Notice } from "./ui";
+import { PENDING_HASH, revealPendingRows } from "./reveal-pending";
+
+const DOCUMENTS_PATH = "/sener/documents";
 
 const HORIZON_OPTIONS: { value: Horizon; label: string }[] = [
   { value: "monthly", label: "Monthly" },
@@ -24,6 +28,13 @@ interface Props {
 export default function SenerPage({ title, subtitle, children }: Props) {
   const { ws, workspace, fuel, setFuel, fuels, horizon, setHorizon, calcError, openUpload } = useSener();
   const pending = pendingUploads(workspace);
+  const pathname = usePathname();
+  // A link to the page you are already on does nothing, so on LOI Documents scroll in place instead.
+  const reviewPending = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (pathname !== DOCUMENTS_PATH) return;
+    e.preventDefault();
+    revealPendingRows();
+  };
 
   return (
     <>
@@ -90,7 +101,7 @@ export default function SenerPage({ title, subtitle, children }: Props) {
               </strong>
               <span>Already visible to everyone. Unconfirmed volumes are NOT included in supply, transport or demand.</span>
             </div>
-            <Link href="/sener/documents" className={BTN_PRIMARY}>
+            <Link href={DOCUMENTS_PATH + PENDING_HASH} onClick={reviewPending} className={BTN_PRIMARY}>
               Review uploaded LOIs
             </Link>
           </div>

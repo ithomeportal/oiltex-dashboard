@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { SenerDocument } from "@/lib/sener/types";
 import { NO_SORT, documentStatusLabel, num, sortRows, toggleSort, type SortColumn } from "@/lib/sener/ui-helpers";
 import { useSener } from "./SenerContext";
 import { BTN_OUTLINE, BTN_PRIMARY, BTN_RED_ORIGINAL, BTN_TEXT, CARD, Icon, SortTh, TD, TH } from "./ui";
+import { isInFlight } from "./intake-ops";
+import { PENDING_HASH, PENDING_ROW_ATTR, hasPendingRow, revealPendingRows } from "./reveal-pending";
 
 interface DocRow {
   doc: SenerDocument;
@@ -42,6 +44,15 @@ export default function DocumentRegister() {
     return sortRows(base, sort, COLUMNS);
   }, [workspace, sort]);
 
+  // Arriving via "Review uploaded LOIs" (/sener/documents#pending): reveal once rows render.
+  const revealed = useRef(false);
+  useEffect(() => {
+    if (revealed.current || window.location.hash !== PENDING_HASH || !hasPendingRow()) return;
+    revealed.current = true;
+    // Deferred so the router's own post-navigation scroll does not override it.
+    setTimeout(revealPendingRows, 150);
+  }, [rows]);
+
   return (
     <div className={CARD}>
       <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
@@ -75,7 +86,7 @@ export default function DocumentRegister() {
               rows.map(({ doc, linkedCount, companies, uploadStatus, dateAdded }) => {
                 const canReview = doc.reviewStatus && doc.reviewStatus !== "duplicate" && !linkedCount;
                 return (
-                  <tr key={doc.id}>
+                  <tr key={doc.id} className={canReview ? "bg-amber-50/60" : undefined} {...(canReview ? { [PENDING_ROW_ATTR]: "" } : {})}>
                     <td className={TD}>
                       <div className="flex items-start gap-2">
                         <Icon name="file" className="w-5 h-5 text-slate-400 shrink-0" />
@@ -115,6 +126,11 @@ export default function DocumentRegister() {
                         {doc.hash && (
                           <button type="button" className={`${BTN_TEXT} text-xs whitespace-nowrap`} onClick={() => beginAttach(doc)}>
                             Reattach original
+                          </button>
+                        )}
+                        {!linkedCount && !isInFlight(doc) && (
+                          <button type="button" className={`${BTN_TEXT} !text-red-600 text-xs whitespace-nowrap`} onClick={() => setModal({ kind: "removeDoc", docId: doc.id })}>
+                            Remove
                           </button>
                         )}
                       </div>

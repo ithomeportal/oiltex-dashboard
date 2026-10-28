@@ -30,6 +30,40 @@ export function patchDoc(docId: string, change: DocChange) {
   };
 }
 
+export class DocumentRegisteredError extends Error {
+  constructor() {
+    super("This LOI now has registered volume records. Remove those records first; the document was not removed.");
+    this.name = "DocumentRegisteredError";
+  }
+}
+
+export class DocumentInFlightError extends Error {
+  constructor() {
+    super("This LOI is still being uploaded or analysed. Try again in a few minutes; the document was not removed.");
+    this.name = "DocumentInFlightError";
+  }
+}
+
+/** True while an upload or analysis of this doc is fresh (same 300 s window as the analysis lock). */
+export function isInFlight(doc: SenerDocument, now = Date.now()): boolean {
+  const since =
+    doc.reviewStatus === "uploading" ? doc.created : doc.reviewStatus === "analyzing" ? doc.analysisStarted : undefined;
+  if (!since) return false;
+  const started = Date.parse(since);
+  return !Number.isNaN(started) && now - started < ANALYSIS_LOCK_MS;
+}
+
+/** Removes an unregistered, idle document (failed/pending/duplicate upload). Registered LOIs are refused. */
+export function removeDocumentMutator(docId: string, now = Date.now()) {
+  return (ws: SenerWorkspace): SenerWorkspace => {
+    const doc = ws.documents.find((d) => d.id === docId);
+    if (!doc) throw new DocumentRemovedError();
+    if (linkedRecords(ws, docId).length) throw new DocumentRegisteredError();
+    if (isInFlight(doc, now)) throw new DocumentInFlightError();
+    return { ...ws, documents: ws.documents.filter((d) => d.id !== docId) };
+  };
+}
+
 export function appendUploadingDoc(
   file: File,
   hash: string,
